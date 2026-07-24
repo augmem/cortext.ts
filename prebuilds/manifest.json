@@ -1,0 +1,43 @@
+{
+  "schema": "augmem.cortext.node.prebuilds.v1",
+  "napi": 8,
+  "optimize": "ReleaseSmall",
+  "targets": [
+    {
+      "package_tag": "linux-x64",
+      "zig_target": "x86_64-linux-gnu.2.17",
+      "artifact": "cortext.node",
+      "size": 5468024
+    },
+    {
+      "package_tag": "linux-arm64",
+      "zig_target": "aarch64-linux-gnu.2.17",
+      "artifact": "cortext.node",
+      "size": 5224872
+    },
+    {
+      "package_tag": "darwin-x64",
+      "zig_target": "x86_64-macos",
+      "artifact": "cortext.node",
+      "size": 5045856
+    },
+    {
+      "package_tag": "darwin-arm64",
+      "zig_target": "aarch64-macos",
+      "artifact": "cortext.node",
+      "size": 5227480
+    },
+    {
+      "package_tag": "win32-x64",
+      "zig_target": "x86_64-windows-gnu",
+      "artifact": "cortext.node",
+      "size": 4116480
+    },
+    {
+      "package_tag": "win32-arm64",
+      "zig_target": "aarch64-windows-gnu",
+      "artifact": "cortext.node",
+      "size": 3718144
+    }
+  ]
+}

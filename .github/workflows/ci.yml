@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  source-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: No oversize binaries committed
+        run: |
+          set -euo pipefail
+          found="$(find . -type f -size +95M -not -path './.git/*' | head || true)"
+          if [[ -n "$found" ]]; then
+            echo "Files over GitHub soft limit:"
+            echo "$found"
+            exit 1
+          fi
+          if find prebuilds -type f -name 'cortext.node' 2>/dev/null | grep -q .; then
+            echo "prebuilds/*.node must not be committed; vendor in CI instead"
+            find prebuilds -type f -name 'cortext.node'
+            exit 1
+          fi
+          echo "source-check ok"
+
+  build-and-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        node-version: ["20", "22"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Vendor host prebuilds from published package
+        run: |
+          set -euo pipefail
+          # Prefer a temporary install of the last published package as a prebuild source.
+          # Falls back to monorepo path if present (self-hosted / multi-checkout CI).
+          mkdir -p /tmp/cortext-prebuild-src
+          npm pack @augmem/cortext@${{ env.PKG_VERSION || '1.2.4' }} --pack-destination /tmp/cortext-prebuild-src || true
+          if ls /tmp/cortext-prebuild-src/*.tgz 1>/dev/null 2>&1; then
+            tar -xzf /tmp/cortext-prebuild-src/*.tgz -C /tmp/cortext-prebuild-src
+            node scripts/vendor-prebuilds.mjs --from /tmp/cortext-prebuild-src/package/prebuilds --host-only --force
+          elif [[ -d ../cortext/bindings/javascript/prebuilds ]]; then
+            node scripts/vendor-prebuilds.mjs --from ../cortext/bindings/javascript/prebuilds --host-only --force
+          else
+            echo "No prebuild source available for runtime tests on this runner"
+            echo "Building types/CJS/ESM only"
+            npm run build
+            node --test tests/package.test.mjs
+            exit 0
+          fi
+          node scripts/check-prebuilds.mjs --host-only
+
+      - name: Build and test
+        run: npm test

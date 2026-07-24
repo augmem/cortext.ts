@@ -1,0 +1,8 @@
+# Normalize text files
+* text=auto eol=lf
+
+# Native prebuilds (when present) as binary
+*.node binary
+*.dylib binary
+*.so binary
+*.dll binary

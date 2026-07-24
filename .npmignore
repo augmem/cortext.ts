@@ -1,0 +1,10 @@
+# Prefer package.json "files" allowlist; this is a safety net.
+src/
+scripts/
+tests/
+.github/
+*.tsbuildinfo
+tsconfig*.json
+.gitignore
+.gitattributes
+.npmignore

@@ -1,0 +1,71 @@
+{
+  "name": "@augmem/cortext",
+  "version": "1.2.4",
+  "description": "TypeScript and JavaScript bindings for the Cortext memory engine",
+  "license": "Apache-2.0",
+  "author": "augmem",
+  "type": "module",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js",
+      "default": "./dist/cjs/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/**/*",
+    "prebuilds/**/*",
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/augmem/cortext.ts.git"
+  },
+  "homepage": "https://github.com/augmem/cortext.ts#readme",
+  "bugs": {
+    "url": "https://github.com/augmem/cortext.ts/issues"
+  },
+  "keywords": [
+    "cortext",
+    "memory",
+    "retrieval",
+    "embeddings",
+    "llm",
+    "agents",
+    "napi",
+    "typescript",
+    "javascript"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build:types": "tsc -p tsconfig.types.json",
+    "build:cjs": "tsc -p tsconfig.cjs.json && node scripts/write-cjs-package.mjs",
+    "build:esm": "node scripts/write-esm-shim.mjs",
+    "build": "npm run clean && npm run build:types && npm run build:cjs && npm run build:esm",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "test:contract": "npm run build && node --test tests/contract.test.mjs",
+    "vendor:prebuilds": "node scripts/vendor-prebuilds.mjs",
+    "prepublishOnly": "npm run build && node scripts/check-prebuilds.mjs",
+    "pack:check": "npm pack --dry-run"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "typescript": "^5.7.0"
+  }
+}
