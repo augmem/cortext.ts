@@ -22,6 +22,26 @@ test("published type declarations match consolidation_state contract", () => {
   assert.doesNotMatch(declarations, /consolidation_required/);
 });
 
+test("published types expose text media bytes and MIME arguments", () => {
+  const declarations = fs.readFileSync(
+    path.join(root, "dist", "types", "types.d.ts"),
+    "utf8"
+  );
+  assert.match(
+    declarations,
+    /processTextWithMediaJson\([\s\S]*media\?: Uint8Array \| null[\s\S]*mediaMimeType\?: string \| null/
+  );
+
+  const cortextDeclarations = fs.readFileSync(
+    path.join(root, "dist", "types", "cortext.d.ts"),
+    "utf8"
+  );
+  assert.match(
+    cortextDeclarations,
+    /processTextWithMedia\([\s\S]*media\?: Media \| Uint8Array \| null[\s\S]*mediaMimeType\?: string \| ProcessOptions \| null/
+  );
+});
+
 test("package exports dual CJS and ESM entry points", () => {
   const pkg = JSON.parse(
     fs.readFileSync(path.join(root, "package.json"), "utf8")

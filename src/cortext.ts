@@ -107,12 +107,51 @@ export class Cortext {
     return this.#inner.processTextJson(text, sourceId, options);
   }
 
+  processTextWithMediaJson(
+    text: string,
+    sourceId: string,
+    media?: Media | Uint8Array | null,
+    mediaMimeType?: string | ProcessOptions | null,
+    options?: ProcessOptions | null
+  ): string {
+    const [mediaData, mimetype, resolvedOptions] = normalizeMedia(
+      media,
+      mediaMimeType,
+      options
+    );
+    return this.#inner.processTextWithMediaJson(
+      text,
+      sourceId,
+      mediaData,
+      mimetype,
+      resolvedOptions
+    );
+  }
+
   processText(
     text: string,
     sourceId: string,
     options?: ProcessOptions | null
   ): CortextContext {
     return parseContext(this.processTextJson(text, sourceId, options));
+  }
+
+  processTextWithMedia(
+    text: string,
+    sourceId: string,
+    media?: Media | Uint8Array | null,
+    mediaMimeType?: string | ProcessOptions | null,
+    options?: ProcessOptions | null
+  ): CortextContext {
+    return parseContext(
+      this.processTextWithMediaJson(
+        text,
+        sourceId,
+        media,
+        mediaMimeType,
+        options
+      )
+    );
   }
 
   processAudioJson(

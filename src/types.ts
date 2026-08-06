@@ -91,6 +91,13 @@ export interface NativeCortext {
     sourceId: string,
     options?: ProcessOptions | null
   ): string;
+  processTextWithMediaJson(
+    text: string,
+    sourceId: string,
+    media?: Uint8Array | null,
+    mediaMimeType?: string | null,
+    options?: ProcessOptions | null
+  ): string;
   embedTextJson(text: string): string;
   processAudioJson(
     pcm: Float32Array,
