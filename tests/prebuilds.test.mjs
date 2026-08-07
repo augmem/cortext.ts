@@ -193,7 +193,7 @@ test("build script keeps CMake and core checkout ownership explicit", () => {
   assert.match(script, /CORTEXT_ALLOW_CLANGCL_ARM=ON/);
   assert.match(script, /class-memaccess/);
   assert.match(script, /CORTEXT_GGML_OPENMP=OFF/);
-  assert.match(script, /configureArgs\.push\("-DCMAKE_CXX_FLAGS=\/EHsc \/wd4127 \/wd4244 \/wd4456 \/wd4996 \/wd5054"\)/);
+  assert.match(script, /configureArgs\.push\("-DCORTEXT_WARNINGS_AS_ERRORS=OFF", "-DCMAKE_CXX_FLAGS=\/EHsc"\)/);
   assert.doesNotMatch(script, /CORTEXT_EMBED_VEC=OFF/);
 });
 test("CI gates strict provenance checks for v2 manifests", () => {
