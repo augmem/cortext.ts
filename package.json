@@ -62,7 +62,10 @@
     "test:contract": "npm run build && node --test tests/contract.test.mjs",
     "vendor:prebuilds": "node scripts/vendor-prebuilds.mjs",
     "prepublishOnly": "npm run build && node scripts/check-prebuilds.mjs",
-    "pack:check": "npm pack --dry-run"
+    "pack:check": "npm pack --dry-run",
+    "build:prebuild": "node scripts/build-prebuild.mjs",
+    "collect:prebuilds": "node scripts/collect-prebuilds.mjs",
+    "check:prebuilds": "node scripts/check-prebuilds.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.17.0",

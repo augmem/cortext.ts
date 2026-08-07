@@ -19,6 +19,7 @@ node_modules/
 # Prebuilt natives (vendor in CI / release; do not commit binaries)
 /prebuilds/*/cortext.node
 /prebuilds/*/cortext.node.*
+/prebuilds/*/build-metadata.json
 
 # Optional local model trees
 /models/

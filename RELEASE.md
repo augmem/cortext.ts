@@ -12,22 +12,25 @@ release. It does **not** create the tag or publish the package.
 
 ## Native/core source of truth
 
-`processTextWithMedia` is a binding and native API contract. The release must
-stage N-API addons built from the matching
-[`augmem/cortext.cpp` `v1.3.0` tag](https://github.com/augmem/cortext.cpp/tree/v1.3.0);
-do not reuse `v1.2.4` (or another older) addon. Build the core JavaScript
-package from that tag, then copy its `bindings/javascript/prebuilds/` tree into
-this repository with:
+`processTextWithMedia` is a binding and native API contract. Every shipped
+addon is built by `.github/workflows/release.yml` from one exact
+[`augmem/cortext.cpp` tag](https://github.com/augmem/cortext.cpp/tags). The
+workflow's `core_tag` input is intentionally a placeholder until the matching
+follow-up core tag containing the Node text-media wrapper is available.
 
-```bash
-npm run vendor:prebuilds -- \
-  --from ../cortext.cpp/bindings/javascript/prebuilds --force
-node scripts/check-prebuilds.mjs
-```
+The TypeScript repository owns the orchestration only:
 
-The matching shared native/model source is the core release asset
-[`cortext-assets-1.3.0.tar.gz`](https://github.com/augmem/cortext.cpp/releases/download/v1.3.0/cortext-assets-1.3.0.tar.gz).
-The asset and N-API build must come from the same core tag.
+1. Each of the six host runners checks out/downloads the requested core tag.
+2. CMake is configured with `CORTEXT_BUILD_NODE_BINDINGS=ON` and builds the
+   `cortext_node` target.
+3. A publish job collects all six `cortext.node` files and writes
+   `prebuilds/manifest.json` with the core tag, commit, SHA-256 hashes, N-API
+   version, and JS-visible symbol contract.
+4. Publish and release upload run only after `check-prebuilds.mjs` passes.
+
+No core addon source is copied into this repository. The old
+`vendor:prebuilds` command remains only as a local compatibility helper and is
+not used by release CI.
 
 ## Verification before tagging
 
@@ -37,9 +40,16 @@ npm run typecheck
 npm run build
 npm test
 npm pack --dry-run
-node scripts/check-prebuilds.mjs
 git diff --check
 ```
 
-Only after review and all checks pass should a maintainer create/push `v1.3.0`
-and allow `.github/workflows/release.yml` to publish.
+Native verification is performed in the release workflow after the six matrix
+artifacts are collected:
+
+```bash
+node scripts/check-prebuilds.mjs --core-tag <matching-core-tag>
+```
+
+Only after review and all checks pass should a maintainer create/push the
+binding tag and allow `.github/workflows/release.yml` to publish. Do not merge,
+tag, or publish from an implementation branch.

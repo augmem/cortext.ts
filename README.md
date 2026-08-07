@@ -173,43 +173,51 @@ npm test
 | --- | --- |
 | `npm run build` | Clean + types + CJS + ESM shim |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm test` | Build + `node --test tests/*.test.mjs` |
-| `npm run vendor:prebuilds` | Copy/link prebuilds into `prebuilds/` |
+| `npm test` | Build + all `node:test` checks |
+| `npm run build:prebuild -- --core-tag <tag>` | Build one host addon from an exact core tag |
+| `npm run collect:prebuilds -- --input <dir> --core-tag <tag>` | Collect the six matrix outputs and write the manifest |
+| `npm run check:prebuilds -- --core-tag <tag>` | Verify all six files, hashes, symbols, and core provenance |
+| `npm run vendor:prebuilds` | Legacy local copy helper (not used by release CI) |
 | `npm run pack:check` | `npm pack --dry-run` |
 
-Prebuild binaries are **not** committed (GitHub size / cleanliness). CI and
-`prepublishOnly` vendor or verify them before packing. For v1.3.0, build the
-N-API prebuilds from the `augmem/cortext.cpp` `v1.3.0` tag (the core
-`bindings/javascript` package builder writes the `prebuilds/` tree), then vendor
-them with `npm run vendor:prebuilds -- --from <core>/bindings/javascript/prebuilds`.
-The core release asset source is
-[`cortext-assets-1.3.0.tar.gz`](https://github.com/augmem/cortext.cpp/releases/download/v1.3.0/cortext-assets-1.3.0.tar.gz);
-use the matching core tag and native build for every shipped addon.
+Prebuild binaries are **not** committed (GitHub size / cleanliness). The
+TypeScript-owned pipeline checks out or clones `augmem/cortext.cpp` at the
+explicit `--core-tag`, configures CMake with
+`CORTEXT_BUILD_NODE_BINDINGS=ON`, and emits only `cortext.node` plus a small
+provenance sidecar. The release matrix runs this once on each of the six Node
+platforms. The collector copies only the six addons, writes
+`prebuilds/manifest.json` with the exact core tag/commit and required
+JS-visible symbols, and the publish job refuses to proceed until the complete
+manifest validates. Core C++ and N-API source is never duplicated here.
+
+For a local host build (the checkout must already be at the exact tag):
+
+```bash
+CORTEXT_CORE_TAG=v1.3.0 npm run build:prebuild -- \
+  --core-dir ../cortext.cpp --target "$(node -p '`${process.platform}-${process.arch}`')"
+```
+
+The workflow dispatch input intentionally defaults to
+`REPLACE_WITH_MATCHING_CORE_TAG`. Replace it with the follow-up
+`augmem/cortext.cpp` tag that contains the Node text-media wrapper; do not
+silently substitute an older native addon.
 
 ## Maintainer release flow
 
-```bash
-# 1) Build the v1.3.0 core N-API prebuilds from augmem/cortext.cpp, then vendor all platforms
-npm run vendor:prebuilds -- --from ../cortext.cpp/bindings/javascript/prebuilds
+1. Prepare the binding release commit and push it; do **not** copy C++ addon
+   source into this repository.
+2. Run `.github/workflows/release.yml` manually with the binding `tag` and the
+   exact matching `core_tag` (replace its placeholder with the follow-up core
+   tag when the Node text-media wrapper lands), or push a version tag when the
+   two versions intentionally match.
+3. The six-host matrix builds from that core tag. The publish job collects and
+   verifies all six addons, including manifest hashes, N-API symbols, and core
+   commit provenance, before `npm publish` or GitHub Release upload.
 
-# 2) Verify
-npm test
-node scripts/check-prebuilds.mjs
-
-# 3) Bump version in package.json + package-lock.json + CHANGELOG.md, verify matching
-v1.3.0 core/native assets, then:
-git tag v1.3.0
-git push origin v1.3.0
-# CI (.github/workflows/release.yml) publishes to npm
-```
-
-Manual publish:
-
-```bash
-npm run build
-node scripts/check-prebuilds.mjs
-npm publish --access public
-```
+The release workflow is the only supported path for publishing native
+artifacts. `npm run check:prebuilds` is deliberately strict: a local checkout
+without the six generated binaries must fail rather than publish a partial
+package.
 
 ## Why a separate repo?
 
