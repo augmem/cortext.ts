@@ -4,13 +4,13 @@
  *
  * Resolution order:
  *   1. --from <dir> (explicit)
- *   2. Sibling monorepo: ../cortext/bindings/javascript/prebuilds
+ *   2. Matching core checkout: ../cortext.cpp/bindings/javascript/prebuilds
+ *      (legacy ../cortext path is also accepted)
  *   3. Installed npm package @augmem/cortext (if present and distinct)
- *   4. GitHub release asset from augmem/cortext (optional --from-release)
  *
  * Usage:
  *   node scripts/vendor-prebuilds.mjs
- *   node scripts/vendor-prebuilds.mjs --from ../cortext/bindings/javascript/prebuilds
+ *   node scripts/vendor-prebuilds.mjs --from ../cortext.cpp/bindings/javascript/prebuilds
  *   node scripts/vendor-prebuilds.mjs --host-only
  */
 import fs from "node:fs";
@@ -52,18 +52,12 @@ function copyFile(src, dest) {
 }
 
 function findSiblingPrebuilds() {
-  const candidate = path.resolve(
-    root,
-    "..",
-    "cortext",
-    "bindings",
-    "javascript",
-    "prebuilds"
+  const candidates = ["cortext.cpp", "cortext"].map((repo) =>
+    path.resolve(root, "..", repo, "bindings", "javascript", "prebuilds")
   );
-  if (fs.existsSync(path.join(candidate, "manifest.json"))) {
-    return candidate;
-  }
-  return null;
+  return candidates.find((candidate) =>
+    fs.existsSync(path.join(candidate, "manifest.json"))
+  ) ?? null;
 }
 
 function findInstalledNpmPrebuilds() {
@@ -140,7 +134,8 @@ function main() {
     console.error(
       "No prebuild source found.\n" +
         "  - Pass --from <dir> pointing at a prebuilds/ tree\n" +
-        "  - Or place the monorepo at ../cortext with bindings/javascript/prebuilds\n" +
+        "  - Or place the matching core checkout at ../cortext.cpp with bindings/javascript/prebuilds\n" +
+        "  - (Legacy) place the monorepo at ../cortext with bindings/javascript/prebuilds\n" +
         "  - Or npm install a published @augmem/cortext that already ships prebuilds"
     );
     process.exit(1);

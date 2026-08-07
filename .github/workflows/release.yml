@@ -1,8 +1,8 @@
 name: Release npm package
 
 # Publishes @augmem/cortext to the npm registry on version tags.
-# Prebuilds must be vendored into the release artifact (from monorepo or
-# a prior npm package) before publish.
+# v1.3.0 prebuilds must be built from the matching augmem/cortext.cpp tag
+# and vendored into the release artifact before publish.
 
 on:
   push:
@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag (e.g. v1.2.4). Empty = package.json version."
+        description: "Release tag (e.g. v1.3.0). Empty = package.json version."
         required: false
         default: ""
 
@@ -56,14 +56,17 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          # 1) Sibling monorepo (optional multi-checkout)
-          if [[ -d ../cortext/bindings/javascript/prebuilds ]]; then
+          # 1) Matching core checkout (optional multi-checkout).
+          # The checkout must be augmem/cortext.cpp at the same v${{ steps.ver.outputs.version }} tag.
+          if [[ -d ../cortext.cpp/bindings/javascript/prebuilds ]]; then
+            node scripts/vendor-prebuilds.mjs --from ../cortext.cpp/bindings/javascript/prebuilds --force
+          elif [[ -d ../cortext/bindings/javascript/prebuilds ]]; then
+            # Legacy monorepo layout; maintainers must still build the matching core tag.
             node scripts/vendor-prebuilds.mjs --from ../cortext/bindings/javascript/prebuilds --force
           else
-            # 2) Pack from last published npm package and reuse its prebuilds
+            # 2) Pack from the matching published npm package and reuse its prebuilds
             mkdir -p /tmp/cortext-prebuild-src
-            npm pack "@augmem/cortext@${{ steps.ver.outputs.version }}" --pack-destination /tmp/cortext-prebuild-src \
-              || npm pack "@augmem/cortext" --pack-destination /tmp/cortext-prebuild-src
+            npm pack "@augmem/cortext@${{ steps.ver.outputs.version }}" --pack-destination /tmp/cortext-prebuild-src
             tar -xzf /tmp/cortext-prebuild-src/*.tgz -C /tmp/cortext-prebuild-src
             node scripts/vendor-prebuilds.mjs --from /tmp/cortext-prebuild-src/package/prebuilds --force
           fi
@@ -93,6 +96,9 @@ jobs:
             echo "## @augmem/cortext ${{ steps.ver.outputs.version }}"
             echo
             echo "TypeScript/JavaScript bindings for Cortext (cortext.ts)."
+            echo
+            echo "Native addons and core assets are built from augmem/cortext.cpp@v${{ steps.ver.outputs.version }}."
+            echo "Core asset source: https://github.com/augmem/cortext.cpp/releases/download/v${{ steps.ver.outputs.version }}/cortext-assets-${{ steps.ver.outputs.version }}.tar.gz"
             echo
             echo '```bash'
             echo "npm install @augmem/cortext@${{ steps.ver.outputs.version }}"

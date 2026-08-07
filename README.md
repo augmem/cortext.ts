@@ -1,13 +1,17 @@
 # cortext.ts
 
-TypeScript and JavaScript bindings for [Cortext](https://github.com/augmem/cortext).
+TypeScript and JavaScript bindings for [Cortext](https://github.com/augmem/cortext.cpp).
 
 This repository is the language-binding home for Node.js — the sibling of
 [`cortext.py`](https://github.com/augmem/cortext.py) and
 [`cortext.go`](https://github.com/augmem/cortext.go). It publishes the npm
 package **`@augmem/cortext`**.
 
-Binding **1.2.4** tracks engine **v1.2.4**.
+Binding **1.3.0** tracks the Cortext native API and release assets at
+[`augmem/cortext.cpp@v1.3.0`](https://github.com/augmem/cortext.cpp/tree/v1.3.0).
+The native addon must be built from that same core tag; this wrapper does not
+provide a compatibility fallback for older addons because `processTextWithMedia`
+requires native support.
 
 ## Install
 
@@ -151,13 +155,13 @@ cortext.ts/
 ## Develop
 
 ```bash
-# From a monorepo-style checkout next to augmem/cortext
+# From a checkout next to augmem/cortext.cpp
 git clone https://github.com/augmem/cortext.ts.git
 cd cortext.ts
 npm install
 
-# Copy N-API prebuilds from sibling engine tree (or a published package)
-npm run vendor:prebuilds
+# Build the matching v1.3.0 core N-API addons in ../cortext.cpp first, then:
+npm run vendor:prebuilds -- --from ../cortext.cpp/bindings/javascript/prebuilds
 
 npm run build
 npm test
@@ -174,21 +178,28 @@ npm test
 | `npm run pack:check` | `npm pack --dry-run` |
 
 Prebuild binaries are **not** committed (GitHub size / cleanliness). CI and
-`prepublishOnly` vendor or verify them before packing.
+`prepublishOnly` vendor or verify them before packing. For v1.3.0, build the
+N-API prebuilds from the `augmem/cortext.cpp` `v1.3.0` tag (the core
+`bindings/javascript` package builder writes the `prebuilds/` tree), then vendor
+them with `npm run vendor:prebuilds -- --from <core>/bindings/javascript/prebuilds`.
+The core release asset source is
+[`cortext-assets-1.3.0.tar.gz`](https://github.com/augmem/cortext.cpp/releases/download/v1.3.0/cortext-assets-1.3.0.tar.gz);
+use the matching core tag and native build for every shipped addon.
 
 ## Maintainer release flow
 
 ```bash
-# 1) Vendor all platform prebuilds (from monorepo build or prior package)
-npm run vendor:prebuilds
+# 1) Build the v1.3.0 core N-API prebuilds from augmem/cortext.cpp, then vendor all platforms
+npm run vendor:prebuilds -- --from ../cortext.cpp/bindings/javascript/prebuilds
 
 # 2) Verify
 npm test
 node scripts/check-prebuilds.mjs
 
-# 3) Bump version in package.json + CHANGELOG.md, then:
-git tag v1.2.4
-git push origin v1.2.4
+# 3) Bump version in package.json + package-lock.json + CHANGELOG.md, verify matching
+v1.3.0 core/native assets, then:
+git tag v1.3.0
+git push origin v1.3.0
 # CI (.github/workflows/release.yml) publishes to npm
 ```
 
@@ -204,7 +215,7 @@ npm publish --access public
 
 | Repo | Role |
 | --- | --- |
-| [`augmem/cortext`](https://github.com/augmem/cortext) | Engine (C++/Zig), in-tree binding prototypes |
+| [`augmem/cortext.cpp`](https://github.com/augmem/cortext.cpp) | Engine (C++/Zig), native release assets |
 | [`augmem/cortext.py`](https://github.com/augmem/cortext.py) | Python wheels (ctypes + platform natives) |
 | [`augmem/cortext.go`](https://github.com/augmem/cortext.go) | Pure Go FFI package |
 | **`augmem/cortext.ts`** | npm `@augmem/cortext` — dual ESM/CJS TypeScript |
