@@ -181,7 +181,7 @@ export class Cortext {
       options
     );
     return parseContext(
-      this.#inner.processTextWithMediaJson(
+      this.processTextWithMediaJson(
         text,
         sourceId,
         mediaData,
