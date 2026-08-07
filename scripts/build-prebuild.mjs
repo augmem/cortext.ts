@@ -42,6 +42,8 @@ function parseArgs(argv) {
     workDir: null,
     cmake: process.env.CMAKE ?? "cmake",
     node: process.execPath,
+    nodeInclude: process.env.CORTEXT_NODE_INCLUDE_DIR ?? null,
+    nodeLibrary: process.env.CORTEXT_NODE_LIBRARY ?? null,
     jobs: process.env.CMAKE_BUILD_PARALLEL_LEVEL ?? null,
     keepCore: false,
     configureOnly: false,
@@ -62,6 +64,8 @@ function parseArgs(argv) {
     else if (arg === "--work-dir") args.workDir = path.resolve(next());
     else if (arg === "--cmake") args.cmake = next();
     else if (arg === "--node") args.node = path.resolve(next());
+    else if (arg === "--node-include") args.nodeInclude = path.resolve(next());
+    else if (arg === "--node-library") args.nodeLibrary = path.resolve(next());
     else if (arg === "--jobs") args.jobs = next();
     else if (arg === "--keep-core") args.keepCore = true;
     else if (arg === "--configure-only") args.configureOnly = true;
@@ -72,7 +76,8 @@ Downloads/checks out augmem/cortext.cpp at <tag>, configures CMake with
 CORTEXT_BUILD_NODE_BINDINGS=ON, and writes <output>/<target>/cortext.node.
 
 Options: --core-dir <checkout> --repository <url> --core-commit <sha>
-         --output <dir> --work-dir <dir> --cmake <path> --node <path> --jobs <n>
+         --output <dir> --work-dir <dir> --cmake <path> --node <path>
+         --node-include <dir> --node-library <file> --jobs <n>
          --keep-core --configure-only`);
       process.exit(0);
     } else {
@@ -209,6 +214,10 @@ function main() {
     fs.rmSync(buildDir, { recursive: true, force: true });
     fs.mkdirSync(buildDir, { recursive: true });
 
+    const nodeHeaders = args.nodeInclude ?? path.join(root, "node_modules", "node-api-headers", "include");
+    const nodeLibrary = args.nodeLibrary ?? (process.platform === "win32"
+      ? path.join(path.dirname(args.node), "node.lib")
+      : null);
     const configureArgs = [
       "-S", core.coreDir,
       "-B", buildDir,
@@ -221,6 +230,15 @@ function main() {
       "-DCORTEXT_BUILD_TOOLS=OFF",
       "-DCORTEXT_NODE_EXECUTABLE=" + args.node,
     ];
+    if (fs.existsSync(path.join(nodeHeaders, "node_api.h"))) {
+      configureArgs.push("-DCORTEXT_NODE_INCLUDE_DIR=" + nodeHeaders);
+    }
+    if (nodeLibrary && fs.existsSync(nodeLibrary)) {
+      configureArgs.push("-DCORTEXT_NODE_LIBRARY=" + nodeLibrary);
+    }
+    if (process.platform === "linux" && process.arch === "arm64") {
+      configureArgs.push("-DCMAKE_CXX_FLAGS=-Wno-error=class-memaccess");
+    }
     run(args.cmake, configureArgs, root);
     if (!args.configureOnly) {
       const buildArgs = ["--build", buildDir, "--target", "cortext_node", "--config", "Release"];

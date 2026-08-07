@@ -123,6 +123,9 @@ jobs:
         with:
           node-version: "22"
 
+      - name: Install pinned Node-API headers
+        run: npm ci --ignore-scripts
+
       - name: Build ${{ matrix.target }} from core tag
         shell: bash
         env:
