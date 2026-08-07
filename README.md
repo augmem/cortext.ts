@@ -197,9 +197,12 @@ it is not the source of release artifacts and should not point at a nonexistent
 
 Prebuild binaries are **not** committed (GitHub size / cleanliness). The
 TypeScript-owned pipeline checks out or clones `augmem/cortext.cpp` at the
-explicit `--core-tag`, configures CMake with
-`CORTEXT_BUILD_NODE_BINDINGS=ON`, and emits only `cortext.node` plus a small
-artifact sidecar. The release matrix runs this once on each of the six Node
+explicit `--core-tag`, installs the pinned `node-api-headers` development
+package, configures CMake with `CORTEXT_BUILD_NODE_BINDINGS=ON`, and emits only
+`cortext.node` plus a small artifact sidecar. Windows builds use `node.lib`
+when the Node toolchain provides it; Linux ARM builds retain the targeted
+`class-memaccess` warning downgrade needed by Eigen. The release matrix runs
+this once on each of the six Node
 platforms. The collector independently checks out the exact core tag, verifies
 the commit and required `ffi/node/addon.cpp` methods, then copies only the six
 addons and writes `prebuilds/manifest.json` with core provenance, hashes,
