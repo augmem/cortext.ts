@@ -7,8 +7,8 @@
  * a small provenance sidecar are emitted under --output.
  *
  * Examples:
- *   node scripts/build-prebuild.mjs --core-tag v1.3.0 --target linux-x64
- *   CORTEXT_CORE_TAG=v1.4.0 npm run build:prebuild -- --target darwin-arm64
+ *   node scripts/build-prebuild.mjs --core-tag v1.3.1 --target linux-x64
+ *   CORTEXT_CORE_TAG=v1.3.1 npm run build:prebuild -- --target darwin-arm64
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -19,6 +19,7 @@ import {
   BUILD_METADATA_SCHEMA,
   NAPI_VERSION,
   REQUIRED_SYMBOLS,
+  assertCommit,
   assertGitTag,
   hostTarget,
   sha256,
@@ -32,6 +33,7 @@ const DEFAULT_REPOSITORY = "https://github.com/augmem/cortext.cpp.git";
 function parseArgs(argv) {
   const args = {
     coreTag: process.env.CORTEXT_CORE_TAG ?? "",
+    coreCommit: process.env.CORTEXT_CORE_COMMIT ?? null,
     coreDir: process.env.CORTEXT_CORE_DIR ?? null,
     repository: process.env.CORTEXT_CORE_REPOSITORY ?? DEFAULT_REPOSITORY,
     target: process.env.CORTEXT_TARGET ?? null,
@@ -51,6 +53,7 @@ function parseArgs(argv) {
       return argv[i];
     };
     if (arg === "--core-tag") args.coreTag = next();
+    else if (arg === "--core-commit") args.coreCommit = next();
     else if (arg === "--core-dir") args.coreDir = next();
     else if (arg === "--repository") args.repository = next();
     else if (arg === "--target") args.target = next();
@@ -67,8 +70,8 @@ function parseArgs(argv) {
 Downloads/checks out augmem/cortext.cpp at <tag>, configures CMake with
 CORTEXT_BUILD_NODE_BINDINGS=ON, and writes <output>/<target>/cortext.node.
 
-Options: --core-dir <checkout> --repository <url> --output <dir>
-         --work-dir <dir> --cmake <path> --node <path> --jobs <n>
+Options: --core-dir <checkout> --repository <url> --core-commit <sha>
+         --output <dir> --work-dir <dir> --cmake <path> --node <path> --jobs <n>
          --keep-core --configure-only`);
       process.exit(0);
     } else {
@@ -130,6 +133,14 @@ function exactTag(coreDir, expectedTag) {
   return commit;
 }
 
+function checkedCoreCommit(commit, expected) {
+  if (expected) {
+    assertCommit(expected, "expected core commit");
+    if (commit !== expected) throw new Error(`core tag resolves to ${commit}, expected ${expected}`);
+  }
+  return commit;
+}
+
 function prepareCore(args, temporaryPaths) {
   if (args.coreDir) {
     const coreDir = path.resolve(args.coreDir);
@@ -139,7 +150,7 @@ function prepareCore(args, temporaryPaths) {
     // A supplied checkout is deliberately never silently retargeted. This
     // prevents building a follow-up wrapper against an unrelated local branch.
     const commit = exactTag(coreDir, args.coreTag);
-    return { coreDir, commit };
+    return { coreDir, commit: checkedCoreCommit(commit, args.coreCommit) };
   }
 
   const checkout = args.workDir
@@ -154,7 +165,7 @@ function prepareCore(args, temporaryPaths) {
   run("git", ["clone", "--filter=blob:none", "--no-checkout", args.repository, checkout], root);
   run("git", ["fetch", "--depth=1", "origin", `refs/tags/${args.coreTag}:refs/tags/${args.coreTag}`], checkout);
   run("git", ["checkout", "--detach", `refs/tags/${args.coreTag}`], checkout);
-  return { coreDir: checkout, commit: exactTag(checkout, args.coreTag) };
+  return { coreDir: checkout, commit: checkedCoreCommit(exactTag(checkout, args.coreTag), args.coreCommit) };
 }
 
 function findAddon(buildDir) {
@@ -178,6 +189,7 @@ function findAddon(buildDir) {
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const coreTag = assertGitTag(args.coreTag, "core tag");
+  if (args.coreCommit) assertCommit(args.coreCommit, "--core-commit");
   const target = args.target ?? hostTarget();
   targetFor(target);
   if (target !== hostTarget()) {

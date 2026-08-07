@@ -167,7 +167,7 @@ function prepareCore(args) {
   return { dir: checkout, cleanup: () => fs.rmSync(checkout, { recursive: true, force: true }) };
 }
 
-function validateMetadata(metadataPath, artifactPath, expectedTag, target) {
+function validateMetadata(metadataPath, artifactPath, expectedTag, expectedCommit, target) {
   const metadata = readJson(metadataPath, `${target} build metadata`);
   if (metadata.schema !== BUILD_METADATA_SCHEMA) {
     throw new Error(`${target} metadata schema must be ${BUILD_METADATA_SCHEMA}`);
@@ -177,6 +177,10 @@ function validateMetadata(metadataPath, artifactPath, expectedTag, target) {
   }
   if (metadata.core_tag !== expectedTag) {
     throw new Error(`${target} was built from ${metadata.core_tag}, expected ${expectedTag}`);
+  }
+  assertCommit(metadata.core_commit, `${target}.core_commit`);
+  if (metadata.core_commit !== expectedCommit) {
+    throw new Error(`${target} sidecar core commit ${metadata.core_commit} differs from expected ${expectedCommit}`);
   }
   if (metadata.napi !== NAPI_VERSION) {
     throw new Error(`${target} uses N-API ${metadata.napi}; expected ${NAPI_VERSION}`);
@@ -201,7 +205,7 @@ function main() {
     const entries = [];
     for (const target of TARGETS) {
       const { artifact, metadata } = findArtifact(args.input, target.packageTag);
-      const checked = validateMetadata(metadata, artifact, coreTag, target.packageTag);
+      const checked = validateMetadata(metadata, artifact, coreTag, resolved.commit, target.packageTag);
       entries.push({
         package_tag: target.packageTag,
         native_target: target.nativeTarget,

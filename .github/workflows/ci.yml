@@ -57,7 +57,7 @@ jobs:
           set -euo pipefail
           # Prefer a temporary install of the last published package as a prebuild source
           # for pre-publish smoke tests only; the release workflow requires matching
-          # v1.3.0 core/native artifacts and never falls back to this source.
+          # v1.3.1 core/native artifacts and never falls back to this source.
           # Falls back to a core checkout when present (self-hosted / multi-checkout CI).
           mkdir -p /tmp/cortext-prebuild-src
           npm pack @augmem/cortext@${{ env.PKG_VERSION || '1.2.4' }} --pack-destination /tmp/cortext-prebuild-src || true
@@ -79,7 +79,7 @@ jobs:
           # CI intentionally smokes the last published package (currently
           # 1.2.4), whose v1 manifest predates core provenance/symbols. Only
           # generated v2 manifests are eligible for the strict release gate.
-          schema="$(node -e 'const fs=require("fs"); const m=JSON.parse(fs.readFileSync("prebuilds/manifest.json", "utf8")); process.stdout.write(m.schema || "")')"
+          schema="$(node -e 'const fs=require("fs"); const p="prebuilds/manifest.json"; if (!fs.existsSync(p)) process.exit(0); const m=JSON.parse(fs.readFileSync(p, "utf8")); process.stdout.write(m.schema || "")')"
           if [[ "$schema" == "augmem.cortext.node.prebuilds.v2" ]]; then
             node scripts/check-prebuilds.mjs --host-only
           else

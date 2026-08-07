@@ -20,6 +20,7 @@ node_modules/
 /prebuilds/*/cortext.node
 /prebuilds/*/cortext.node.*
 /prebuilds/*/build-metadata.json
+/prebuilds/manifest.json
 
 # Optional local model trees
 /models/

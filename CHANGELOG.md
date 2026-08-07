@@ -6,6 +6,16 @@ documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
+## [1.3.1] - Unreleased
+
+### Changed
+
+- Release ownership moved to the TypeScript repository's six-runner CMake
+  N-API prebuild pipeline. Addons are provenance-checked against the exact
+  `augmem/cortext.cpp` `v1.3.1` core tag before publishing.
+- Generated prebuilds and manifests are release artifacts and are not tracked
+  in the source checkout.
+
 ## [1.3.0] - 2026-08-06
 
 ### Added

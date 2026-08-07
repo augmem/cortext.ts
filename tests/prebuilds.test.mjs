@@ -76,7 +76,7 @@ function fixture() {
       toolchain: "forged sidecar value",
       abi: "forged sidecar value",
       core_tag: coreTag,
-      core_commit: "b".repeat(40),
+      core_commit: coreCommit,
       napi: 8,
       symbols: ["forged sidecar symbols"],
       artifact: "cortext.node",
@@ -139,12 +139,35 @@ test("collector rejects a matrix artifact from a different core tag", () => {
   }
 });
 
+test("collector rejects a sidecar core commit that differs from independently resolved core", () => {
+  const paths = fixture();
+  try {
+    const metadata = path.join(paths.input, "prebuild-linux-x64", "linux-x64", "build-metadata.json");
+    const value = JSON.parse(fs.readFileSync(metadata, "utf8"));
+    value.core_commit = "b".repeat(40);
+    fs.writeFileSync(metadata, JSON.stringify(value));
+    const result = run(collectScript, [
+      "--input", paths.input,
+      "--output", paths.output,
+      "--core-tag", paths.coreTag,
+      "--core-dir", paths.coreDir,
+      "--expected-core-commit", paths.coreCommit,
+      "--force",
+    ]);
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}\n${result.stderr}`, /sidecar core commit/);
+  } finally {
+    fs.rmSync(paths.directory, { recursive: true, force: true });
+  }
+});
+
 test("build script keeps CMake and core checkout ownership explicit", () => {
   const script = fs.readFileSync(path.join(root, "scripts", "build-prebuild.mjs"), "utf8");
   assert.match(script, /CORTEXT_BUILD_NODE_BINDINGS=ON/);
   assert.match(script, /refs\/tags/);
   assert.match(script, /addon\.cpp/);
   assert.match(script, /build-metadata\.json/);
+  assert.match(script, /expected core commit/);
 });
 test("CI gates strict provenance checks for v2 manifests", () => {
   const workflow = fs.readFileSync(path.join(root, ".github", "workflows", "ci.yml"), "utf8");
@@ -156,8 +179,13 @@ test("CI gates strict provenance checks for v2 manifests", () => {
 test("release workflow pins immutable source and uses exact non-clobbering publication", () => {
   const workflow = fs.readFileSync(path.join(root, ".github", "workflows", "release.yml"), "utf8");
   assert.match(workflow, /checkout_sha/);
+  assert.match(workflow, /core_commit/);
+  assert.match(workflow, /--core-commit/);
   assert.match(workflow, /persist-credentials: false/);
   assert.match(workflow, /verify-github-tag\.mjs/);
+  assert.match(workflow, /environment: npm-release/);
+  assert.match(workflow, /concurrency:[\s\S]*cancel-in-progress: false/);
+  assert.match(workflow, /npm publish \"\$TGZ\" --access public --provenance --ignore-scripts/);
   assert.match(workflow, /verify-release-package\.mjs/);
   assert.match(workflow, /path: \$\{\{ runner\.temp \}\}\/cortext-prebuild\n/);
   assert.doesNotMatch(workflow, /path: \$\{\{ runner\.temp \}\}\/cortext-prebuild\/\$\{\{ matrix\.target \}\}/);
@@ -207,7 +235,7 @@ test("release resolver rejects a tag that differs from package.json", () => {
     const result = spawnSync(process.execPath, [path.join(root, "scripts", "resolve-release.mjs")], {
       cwd: root,
       encoding: "utf8",
-      env: { ...process.env, GITHUB_OUTPUT: output, GITHUB_REF_TYPE: "branch", INPUT_TAG: "v9.9.9", INPUT_CORE_TAG: "v1.3.0" },
+      env: { ...process.env, GITHUB_OUTPUT: output, GITHUB_REF_TYPE: "branch", INPUT_TAG: "v9.9.9", INPUT_CORE_TAG: "v1.3.1" },
     });
     assert.notEqual(result.status, 0);
     assert.match(`${result.stdout}\n${result.stderr}`, /must exactly match package\.json version/);

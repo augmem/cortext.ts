@@ -1,14 +1,15 @@
-# cortext.ts v1.3.0 Release Metadata
+# cortext.ts v1.3.1 Release Metadata
 
-This document records the source and packaging contract for the `v1.3.0`
+This document records the source and packaging contract for the `v1.3.1`
 release. It does **not** create the tag or publish the package.
 
 ## Version and baseline
 
-- npm package: `@augmem/cortext@1.3.0`
-- Git tag to create after review: `v1.3.0`
-- Binding baseline: `351db23d032fa50fec15cb9b5c0b12fb9f961c0a` (merged PR #1)
-- Version surfaces: `package.json` and `package-lock.json` are both `1.3.0`.
+- npm package: `@augmem/cortext@1.3.1`
+- Git tag to create after review: `v1.3.1`
+- Binding baseline: this reviewed TypeScript-owned prebuild pipeline branch
+  (the immutable release SHA is resolved by CI before publication).
+- Version surfaces: `package.json` and `package-lock.json` are both `1.3.1`.
 
 ## Native/core source of truth
 
@@ -55,7 +56,7 @@ Native verification is performed in the release workflow after the six matrix
 artifacts are collected:
 
 ```bash
-node scripts/check-prebuilds.mjs --core-tag <matching-core-tag>
+node scripts/check-prebuilds.mjs --core-tag v1.3.1 --core-commit <matching-core-commit>
 ```
 
 The workflow packs exactly `@augmem/cortext@<version>`, verifies the tarball
