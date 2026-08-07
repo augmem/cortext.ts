@@ -173,7 +173,8 @@ npm test
 | --- | --- |
 | `npm run build` | Clean + types + CJS + ESM shim |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm test` | Build + all `node:test` checks |
+| `npm test` | Build + all `node:test` checks (requires native model assets) |
+| `npm run test:release` | Build + package/prebuild/contract checks without model inference |
 | `npm run build:prebuild -- --core-tag <tag>` | Build one host addon from an exact core tag |
 | `npm run collect:prebuilds -- --input <dir> --core-tag <tag>` | Collect the six matrix outputs and write the manifest |
 | `npm run check:prebuilds -- --core-tag <tag>` | Verify all six files, hashes, symbols, and core provenance |
@@ -201,6 +202,12 @@ The workflow dispatch input intentionally defaults to
 `REPLACE_WITH_MATCHING_CORE_TAG`. Replace it with the follow-up
 `augmem/cortext.cpp` tag that contains the Node text-media wrapper; do not
 silently substitute an older native addon.
+
+Release CI uses `npm run test:release`: it builds the package and runs the
+package, declaration, prebuild-manifest, and wrapper-contract checks while
+excluding model-inference tests. This is intentional because published
+prebuilds do not include the approximately 142 MiB AIST GGUF; full `npm test`
+remains the local/model-equipped runtime suite.
 
 ## Maintainer release flow
 

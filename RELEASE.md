@@ -39,9 +39,15 @@ npm ci
 npm run typecheck
 npm run build
 npm test
+npm run test:release
 npm pack --dry-run
 git diff --check
 ```
+
+Release CI runs `npm run test:release` rather than the full model-inference
+suite: this validates the package, declarations, wrapper contract, and
+prebuild checks without downloading the approximately 142 MiB AIST GGUF. Full
+`npm test` remains the local/model-equipped runtime suite.
 
 Native verification is performed in the release workflow after the six matrix
 artifacts are collected:

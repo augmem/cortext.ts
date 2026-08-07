@@ -86,5 +86,9 @@ jobs:
             echo "Legacy prebuild manifest ($schema); skipping strict provenance check for smoke tests"
           fi
 
-      - name: Build and test
-        run: npm test
+      - name: Build and run model-independent release tests
+        # The published smoke addon does not ship the 142 MiB AIST GGUF. Keep
+        # full `npm test` for local/model-equipped runs, but use the release
+        # gate here so CI proves packaging, declarations, provenance, and the
+        # wrapper contract without attempting native model inference.
+        run: npm run test:release

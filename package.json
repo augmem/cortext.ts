@@ -65,7 +65,8 @@
     "pack:check": "npm pack --dry-run",
     "build:prebuild": "node scripts/build-prebuild.mjs",
     "collect:prebuilds": "node scripts/collect-prebuilds.mjs",
-    "check:prebuilds": "node scripts/check-prebuilds.mjs"
+    "check:prebuilds": "node scripts/check-prebuilds.mjs",
+    "test:release": "npm run build && node --test --test-name-pattern=\"^(published type declarations|published types expose safe|source typecheck|package exports|CJS require|ESM import|package\\.json follows|required root files|collector|build script|CI gates)\" tests/package.test.mjs tests/contract.test.mjs tests/prebuilds.test.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.17.0",

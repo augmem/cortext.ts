@@ -20,6 +20,9 @@ test("package.json follows dual-package publish conventions", () => {
   assert.ok(pkg.repository?.url?.includes("cortext.ts"));
   assert.ok(pkg.scripts?.prepublishOnly);
   assert.ok(pkg.scripts?.build);
+  assert.match(pkg.scripts?.["test:release"], /test-name-pattern/);
+  assert.match(pkg.scripts?.["test:release"], /tests\/contract\.test\.mjs/);
+  assert.doesNotMatch(pkg.scripts?.["test:release"], /tests\/api\.test\.mjs/);
 });
 
 test("required root files exist", () => {

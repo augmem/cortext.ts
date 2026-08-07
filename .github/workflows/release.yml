@@ -167,12 +167,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build and test package with collected natives
+      - name: Build and run model-independent release tests
         env:
           CORE_TAG: ${{ needs.resolve.outputs.core_tag }}
         run: |
           set -euo pipefail
-          npm test
+          # Release runners validate packaging, declarations, provenance, and
+          # wrapper contracts without downloading the 142 MiB AIST GGUF.
+          npm run test:release
           node scripts/check-prebuilds.mjs --core-tag "$CORE_TAG"
           npm pack --dry-run
 
