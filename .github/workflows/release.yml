@@ -126,6 +126,15 @@ jobs:
       - name: Install pinned Node-API headers
         run: npm ci --ignore-scripts
 
+      - name: Install LLVM for Windows ARM64
+        if: matrix.target == 'win32-arm64'
+        shell: pwsh
+        run: |
+          choco install llvm --yes --no-progress
+          $llvmBin = Join-Path $env:ProgramFiles "LLVM\bin"
+          if (-not (Test-Path (Join-Path $llvmBin "clang-cl.exe"))) { throw "clang-cl.exe was not installed" }
+          Add-Content -Path $env:GITHUB_PATH -Value $llvmBin
+
       - name: Build ${{ matrix.target }} from core tag
         shell: bash
         env:

@@ -185,6 +185,9 @@ test("build script keeps CMake and core checkout ownership explicit", () => {
   assert.match(script, /expected core commit/);
   assert.match(script, /node-api-headers/);
   assert.match(script, /CORTEXT_NODE_LIBRARY/);
+  assert.match(script, /node_api\.def/);
+  assert.match(script, /lib\.exe/);
+  assert.match(script, /clang-cl/);
   assert.match(script, /class-memaccess/);
 });
 test("CI gates strict provenance checks for v2 manifests", () => {
@@ -200,6 +203,7 @@ test("release workflow pins immutable source and uses exact non-clobbering publi
   assert.match(workflow, /core_commit/);
   assert.match(workflow, /--core-commit/);
   assert.match(workflow, /npm ci --ignore-scripts/);
+  assert.match(workflow, /Install LLVM for Windows ARM64/);
   assert.match(workflow, /persist-credentials: false/);
   assert.match(workflow, /verify-github-tag\.mjs/);
   assert.match(workflow, /environment: npm-release/);
