@@ -192,6 +192,7 @@ test("build script keeps CMake and core checkout ownership explicit", () => {
   assert.match(script, /clang-cl/);
   assert.match(script, /class-memaccess/);
   assert.match(script, /CORTEXT_GGML_OPENMP=OFF/);
+  assert.match(script, /CMAKE_CXX_FLAGS=\/wd4127;\/wd4244;\/wd4456;\/wd4996;\/wd5054/);
   assert.doesNotMatch(script, /CORTEXT_EMBED_VEC=OFF/);
 });
 test("CI gates strict provenance checks for v2 manifests", () => {

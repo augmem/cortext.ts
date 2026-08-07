@@ -298,6 +298,9 @@ function main() {
     if (clangCl) {
       configureArgs.push("-DCMAKE_C_COMPILER=" + clangCl, "-DCMAKE_CXX_COMPILER=" + clangCl);
     }
+    if (process.platform === "win32") {
+      configureArgs.push("-DCMAKE_CXX_FLAGS=/wd4127;/wd4244;/wd4456;/wd4996;/wd5054");
+    }
     if (process.platform === "linux" && process.arch === "arm64") {
       configureArgs.push("-DCMAKE_CXX_FLAGS=-Wno-error=class-memaccess");
     }
