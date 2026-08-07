@@ -262,7 +262,7 @@ test("release resolver rejects a tag that differs from package.json", () => {
     const result = spawnSync(process.execPath, [path.join(root, "scripts", "resolve-release.mjs")], {
       cwd: root,
       encoding: "utf8",
-      env: { ...process.env, GITHUB_OUTPUT: output, GITHUB_REF_TYPE: "branch", INPUT_TAG: "v9.9.9", INPUT_CORE_TAG: "v1.3.1" },
+      env: { ...process.env, GITHUB_OUTPUT: output, GITHUB_REF_TYPE: "branch", INPUT_TAG: "v9.9.9", INPUT_CORE_TAG: "v1.3.2" },
     });
     assert.notEqual(result.status, 0);
     assert.match(`${result.stdout}\n${result.stderr}`, /must exactly match package\.json version/);

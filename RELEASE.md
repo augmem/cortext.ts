@@ -1,25 +1,25 @@
-# cortext.ts v1.3.1 Release Metadata
+# cortext.ts v1.3.2 Release Metadata
 
-This document records the source and packaging contract for the `v1.3.1`
+This document records the source and packaging contract for the `v1.3.2`
 release. It does **not** create the tag or publish the package.
 
 ## Version and baseline
 
-- npm package: `@augmem/cortext@1.3.1`
-- Git tag to create after review: `v1.3.1`
+- npm package: `@augmem/cortext@1.3.2`
+- Git tag to create after review: `v1.3.2`
 - Binding baseline: this reviewed TypeScript-owned prebuild pipeline branch
   (the immutable release SHA is resolved by CI before publication).
-- Version surfaces: `package.json` and `package-lock.json` are both `1.3.1`.
+- Version surfaces: `package.json` and `package-lock.json` are both `1.3.2`.
 
 ## Native/core source of truth
 
 `processTextWithMedia` is a binding and native API contract. Every shipped
 addon is built by `.github/workflows/release.yml` from one exact
 [`augmem/cortext.cpp` tag](https://github.com/augmem/cortext.cpp/tags). The
-available matching tag is `v1.3.1`, which contains the Node text-media wrapper;
-the workflow dispatch `core_tag` input defaults to that exact tag and accepts
-only another strict semver core tag when a later release is intentionally
-selected.
+required matching tag is `v1.3.2`, which must contain the Node text-media
+wrapper and the native build fixes before this release can proceed. The
+workflow dispatch `core_tag` input defaults to that exact tag; it must not be
+created or selected for publication until the core change is merged and tagged.
 
 The TypeScript repository owns the orchestration only:
 
@@ -58,7 +58,7 @@ Native verification is performed in the release workflow after the six matrix
 artifacts are collected:
 
 ```bash
-node scripts/check-prebuilds.mjs --core-tag v1.3.1 --core-commit <matching-core-commit>
+node scripts/check-prebuilds.mjs --core-tag v1.3.2 --core-commit <matching-core-commit>
 ```
 
 The workflow packs exactly `@augmem/cortext@<version>`, verifies the tarball

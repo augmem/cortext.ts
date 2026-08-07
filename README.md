@@ -7,8 +7,8 @@ This repository is the language-binding home for Node.js — the sibling of
 [`cortext.go`](https://github.com/augmem/cortext.go). It publishes the npm
 package **`@augmem/cortext`**.
 
-Binding **1.3.1** tracks the Cortext native API and release assets at
-[`augmem/cortext.cpp@v1.3.1`](https://github.com/augmem/cortext.cpp/tree/v1.3.1).
+Binding **1.3.2** tracks the Cortext native API and release assets at
+[`augmem/cortext.cpp@v1.3.2`](https://github.com/augmem/cortext.cpp/tree/v1.3.2).
 The native addon must be built from that same core tag; this wrapper does not
 provide a compatibility fallback for older addons because `processTextWithMedia`
 requires native support.
@@ -168,7 +168,7 @@ cd cortext.ts
 npm install
 
 # Build the host addon from the exact available core tag.
-CORTEXT_CORE_TAG=v1.3.1 npm run build:prebuild -- \
+CORTEXT_CORE_TAG=v1.3.2 npm run build:prebuild -- \
   --core-dir ../cortext.cpp \
   --target "$(node -p '`${process.platform}-${process.arch}`')"
 
@@ -216,7 +216,7 @@ C++ and N-API source is never duplicated here.
 For a local host build (the checkout must already be at the exact tag):
 
 ```bash
-CORTEXT_CORE_TAG=v1.3.1 npm run build:prebuild -- \
+CORTEXT_CORE_TAG=v1.3.2 npm run build:prebuild -- \
   --core-dir ../cortext.cpp --target "$(node -p '`${process.platform}-${process.arch}`')"
 ```
 
