@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,23 +23,47 @@ test("published type declarations match consolidation_state contract", () => {
   assert.doesNotMatch(declarations, /consolidation_required/);
 });
 
-test("published types expose text media bytes and MIME arguments", () => {
+test("published types expose safe text media overloads", () => {
   const declarations = fs.readFileSync(
-    path.join(root, "dist", "types", "types.d.ts"),
-    "utf8"
-  );
-  assert.match(
-    declarations,
-    /processTextWithMediaJson\([\s\S]*media\?: Uint8Array \| null[\s\S]*mediaMimeType\?: string \| null/
-  );
-
-  const cortextDeclarations = fs.readFileSync(
     path.join(root, "dist", "types", "cortext.d.ts"),
     "utf8"
   );
   assert.match(
-    cortextDeclarations,
-    /processTextWithMedia\([\s\S]*media\?: Media \| Uint8Array \| null[\s\S]*mediaMimeType\?: string \| ProcessOptions \| null/
+    declarations,
+    /processTextWithMediaJson\(text: string, sourceId: string, media: Media, options\?: ProcessOptions \| null\): string;/
+  );
+  assert.match(
+    declarations,
+    /processTextWithMediaJson\(text: string, sourceId: string, media\?: Uint8Array \| null, mediaMimeType\?: string \| null, options\?: ProcessOptions \| null\): string;/
+  );
+  assert.match(
+    declarations,
+    /processTextWithMedia\(text: string, sourceId: string, media: Media, options\?: ProcessOptions \| null\): CortextContext;/
+  );
+  assert.match(
+    declarations,
+    /processTextWithMedia\(text: string, sourceId: string, media\?: Uint8Array \| null, mediaMimeType\?: string \| null, options\?: ProcessOptions \| null\): CortextContext;/
+  );
+  assert.doesNotMatch(
+    declarations,
+    /processTextWithMediaJson\(text: string, sourceId: string, media\?: Media \| Uint8Array \| null, mediaMimeType\?: string \| ProcessOptions \| null/
+  );
+  assert.doesNotMatch(
+    declarations,
+    /processTextWithMedia\(text: string, sourceId: string, media\?: Media \| Uint8Array \| null, mediaMimeType\?: string \| ProcessOptions \| null/
+  );
+});
+
+test("source typecheck rejects options in the Uint8Array MIME slot", () => {
+  execFileSync(
+    process.execPath,
+    [
+      path.join(root, "node_modules", "typescript", "bin", "tsc"),
+      "-p",
+      path.join(root, "tests", "fixtures", "tsconfig.json"),
+      "--noEmit",
+    ],
+    { stdio: "inherit" }
   );
 });
 
