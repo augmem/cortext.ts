@@ -302,7 +302,7 @@ function main() {
       configureArgs.push("-DCORTEXT_ALLOW_CLANGCL_ARM=ON");
     }
     if (process.platform === "win32") {
-      configureArgs.push("-DCORTEXT_WARNINGS_AS_ERRORS=OFF", "-DCMAKE_CXX_FLAGS=/EHsc");
+      configureArgs.push("-DCORTEXT_WARNINGS_AS_ERRORS=OFF", "-DCMAKE_CXX_FLAGS=/EHsc /DNOMINMAX");
     }
     if (process.platform === "linux" && process.arch === "arm64") {
       configureArgs.push("-DCMAKE_CXX_FLAGS=-Wno-error=class-memaccess");
