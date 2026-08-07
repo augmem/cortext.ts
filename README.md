@@ -111,6 +111,19 @@ try {
 Use `new Cortext(":memory:")` for a temporary engine. Use a file path when
 memories should survive process restarts.
 
+To retain arbitrary source media alongside text, pass raw bytes and their MIME
+type to `processTextWithMedia` (or pass a `Media` object):
+
+```ts
+const ctx = memory.processTextWithMedia(
+  "Bailey sent a voice note.",
+  "chat/main",
+  new Uint8Array([0x00, 0xff, 0x01]),
+  "audio/ogg",
+  { includeEmbedding: false }
+);
+```
+
 ## API
 
 | Export | Notes |

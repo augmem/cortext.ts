@@ -23,17 +23,23 @@ function normalizeMedia(
   ) {
     const resolvedOptions =
       options === undefined &&
-      mediaMimeType &&
+      mediaMimeType !== null &&
+      mediaMimeType !== undefined &&
       typeof mediaMimeType === "object"
-        ? (mediaMimeType as ProcessOptions)
+        ? mediaMimeType
         : options;
     return [media.data, media.mimetype, resolvedOptions];
   }
-  return [
-    media as Uint8Array | null | undefined,
-    mediaMimeType as string | null | undefined,
-    options,
-  ];
+  if (
+    mediaMimeType !== null &&
+    mediaMimeType !== undefined &&
+    typeof mediaMimeType === "object"
+  ) {
+    throw new TypeError(
+      "ProcessOptions is only valid in the final argument when media is a Uint8Array"
+    );
+  }
+  return [media, mediaMimeType, options];
 }
 
 /**
@@ -107,12 +113,82 @@ export class Cortext {
     return this.#inner.processTextJson(text, sourceId, options);
   }
 
+  processTextWithMediaJson(
+    text: string,
+    sourceId: string,
+    media: Media,
+    options?: ProcessOptions | null
+  ): string;
+  processTextWithMediaJson(
+    text: string,
+    sourceId: string,
+    media?: Uint8Array | null,
+    mediaMimeType?: string | null,
+    options?: ProcessOptions | null
+  ): string;
+  processTextWithMediaJson(
+    text: string,
+    sourceId: string,
+    media?: Media | Uint8Array | null,
+    mediaMimeType?: string | ProcessOptions | null,
+    options?: ProcessOptions | null
+  ): string {
+    const [mediaData, mimetype, resolvedOptions] = normalizeMedia(
+      media,
+      mediaMimeType,
+      options
+    );
+    return this.#inner.processTextWithMediaJson(
+      text,
+      sourceId,
+      mediaData,
+      mimetype,
+      resolvedOptions
+    );
+  }
+
   processText(
     text: string,
     sourceId: string,
     options?: ProcessOptions | null
   ): CortextContext {
     return parseContext(this.processTextJson(text, sourceId, options));
+  }
+
+  processTextWithMedia(
+    text: string,
+    sourceId: string,
+    media: Media,
+    options?: ProcessOptions | null
+  ): CortextContext;
+  processTextWithMedia(
+    text: string,
+    sourceId: string,
+    media?: Uint8Array | null,
+    mediaMimeType?: string | null,
+    options?: ProcessOptions | null
+  ): CortextContext;
+  processTextWithMedia(
+    text: string,
+    sourceId: string,
+    media?: Media | Uint8Array | null,
+    mediaMimeType?: string | ProcessOptions | null,
+    options?: ProcessOptions | null
+  ): CortextContext {
+    const [mediaData, mimetype, resolvedOptions] = normalizeMedia(
+      media,
+      mediaMimeType,
+      options
+    );
+    return parseContext(
+      this.processTextWithMediaJson(
+        text,
+        sourceId,
+        mediaData,
+        mimetype,
+        resolvedOptions
+      )
+    );
   }
 
   processAudioJson(
