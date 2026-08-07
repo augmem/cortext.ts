@@ -55,14 +55,19 @@ jobs:
       - name: Vendor host prebuilds from published package
         run: |
           set -euo pipefail
-          # Prefer a temporary install of the last published package as a prebuild source.
-          # Falls back to monorepo path if present (self-hosted / multi-checkout CI).
+          # Prefer a temporary install of the last published package as a prebuild source
+          # for pre-publish smoke tests only; the release workflow requires matching
+          # v1.3.0 core/native artifacts and never falls back to this source.
+          # Falls back to a core checkout when present (self-hosted / multi-checkout CI).
           mkdir -p /tmp/cortext-prebuild-src
           npm pack @augmem/cortext@${{ env.PKG_VERSION || '1.2.4' }} --pack-destination /tmp/cortext-prebuild-src || true
           if ls /tmp/cortext-prebuild-src/*.tgz 1>/dev/null 2>&1; then
             tar -xzf /tmp/cortext-prebuild-src/*.tgz -C /tmp/cortext-prebuild-src
             node scripts/vendor-prebuilds.mjs --from /tmp/cortext-prebuild-src/package/prebuilds --host-only --force
+          elif [[ -d ../cortext.cpp/bindings/javascript/prebuilds ]]; then
+            node scripts/vendor-prebuilds.mjs --from ../cortext.cpp/bindings/javascript/prebuilds --host-only --force
           elif [[ -d ../cortext/bindings/javascript/prebuilds ]]; then
+            # Legacy monorepo layout.
             node scripts/vendor-prebuilds.mjs --from ../cortext/bindings/javascript/prebuilds --host-only --force
           else
             echo "No prebuild source available for runtime tests on this runner"
