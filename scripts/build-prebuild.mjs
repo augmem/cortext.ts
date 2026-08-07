@@ -174,6 +174,65 @@ function prepareCore(args, temporaryPaths) {
   return { coreDir: checkout, commit: checkedCoreCommit(exactTag(checkout, args.coreTag), args.coreCommit) };
 }
 
+function commandOutput(command, args) {
+  try {
+    return execFileSync(command, args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  } catch {
+    return "";
+  }
+}
+
+function findWindowsTool(name, targetArch) {
+  if (process.platform !== "win32") return null;
+  const found = commandOutput("where.exe", [name]).split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const candidates = [...found];
+  const roots = [process.env.VCToolsInstallDir, process.env.VCINSTALLDIR]
+    .filter(Boolean)
+    .map((dir) => path.resolve(dir));
+  const arch = targetArch === "arm64" ? "ARM64" : "x64";
+  for (const base of roots) {
+    candidates.push(path.join(base, "bin", "Hostx64", arch, name));
+    candidates.push(path.join(base, "bin", "Hostx64", arch.toLowerCase(), name));
+  }
+  const programFiles = process.env.ProgramFiles ?? "C:\\Program Files";
+  candidates.push(path.join(programFiles, "LLVM", "bin", name));
+  const vswhere = path.join(process.env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)", "Microsoft Visual Studio", "Installer", "vswhere.exe");
+  if (fs.existsSync(vswhere)) {
+    candidates.push(...commandOutput(vswhere, ["-latest", "-products", "*", "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "-find", `**\\${name}`]).split(/\r?\n/).map((line) => line.trim()).filter(Boolean));
+  }
+  return candidates.find((candidate) => fs.existsSync(candidate)) ?? null;
+}
+
+function prepareWindowsNodeLibrary(args, target, temporaryPaths) {
+  if (process.platform !== "win32") return null;
+  if (args.nodeLibrary) {
+    if (!fs.existsSync(args.nodeLibrary)) throw new Error(`--node-library not found: ${args.nodeLibrary}`);
+    return args.nodeLibrary;
+  }
+  const bundled = path.join(path.dirname(args.node), "node.lib");
+  if (fs.existsSync(bundled)) return bundled;
+  const definition = path.join(root, "node_modules", "node-api-headers", "def", "node_api.def");
+  if (!fs.existsSync(definition)) {
+    throw new Error(`Windows Node import library is missing and node-api-headers definition was not found: ${definition}`);
+  }
+  const libExe = findWindowsTool("lib.exe", target.endsWith("arm64") ? "arm64" : "x64");
+  if (!libExe) throw new Error("Windows Node import library is missing; Visual Studio lib.exe was not found to generate node.lib from node_api.def");
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "cortext-node-lib-"));
+  temporaryPaths.push(directory);
+  const output = path.join(directory, "node.lib");
+  const machine = target.endsWith("arm64") ? "ARM64" : "X64";
+  run(libExe, [`/DEF:${definition}`, `/OUT:${output}`, `/MACHINE:${machine}`], root);
+  if (!fs.existsSync(output)) throw new Error(`lib.exe did not produce ${output}`);
+  return output;
+}
+
+function findWindowsClang(target) {
+  if (process.platform !== "win32" || !target.endsWith("arm64")) return null;
+  const clang = findWindowsTool("clang-cl.exe", "arm64");
+  if (!clang) throw new Error("Windows ARM64 builds require clang-cl; install LLVM before running the native ARM64 matrix job");
+  return clang;
+}
+
 function findAddon(buildDir) {
   const expected = path.join(buildDir, "ffi", "node", "cortext.node");
   if (fs.existsSync(expected)) return expected;
@@ -215,9 +274,8 @@ function main() {
     fs.mkdirSync(buildDir, { recursive: true });
 
     const nodeHeaders = args.nodeInclude ?? path.join(root, "node_modules", "node-api-headers", "include");
-    const nodeLibrary = args.nodeLibrary ?? (process.platform === "win32"
-      ? path.join(path.dirname(args.node), "node.lib")
-      : null);
+    const nodeLibrary = prepareWindowsNodeLibrary(args, target, temporaryPaths);
+    const clangCl = findWindowsClang(target);
     const configureArgs = [
       "-S", core.coreDir,
       "-B", buildDir,
@@ -235,6 +293,9 @@ function main() {
     }
     if (nodeLibrary && fs.existsSync(nodeLibrary)) {
       configureArgs.push("-DCORTEXT_NODE_LIBRARY=" + nodeLibrary);
+    }
+    if (clangCl) {
+      configureArgs.push("-DCMAKE_C_COMPILER=" + clangCl, "-DCMAKE_CXX_COMPILER=" + clangCl);
     }
     if (process.platform === "linux" && process.arch === "arm64") {
       configureArgs.push("-DCMAKE_CXX_FLAGS=-Wno-error=class-memaccess");
