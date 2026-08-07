@@ -299,7 +299,7 @@ function main() {
       configureArgs.push("-DCMAKE_C_COMPILER=" + clangCl, "-DCMAKE_CXX_COMPILER=" + clangCl);
     }
     if (process.platform === "linux" && process.arch === "arm64") {
-      configureArgs.push("-DCORTEXT_EMBED_VEC=OFF", "-DCMAKE_CXX_FLAGS=-Wno-error=class-memaccess");
+      configureArgs.push("-DCMAKE_CXX_FLAGS=-Wno-error=class-memaccess");
     }
     run(args.cmake, configureArgs, root);
     if (!args.configureOnly) {

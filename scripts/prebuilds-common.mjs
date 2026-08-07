@@ -24,7 +24,7 @@ export const TARGETS = [
     nativeTarget: "aarch64-linux-gnu",
     toolchain: "ubuntu-24.04-arm (CMake native)",
     abi: "glibc >= 2.39; ubuntu-24.04-arm runner ABI",
-    features: { ggml_openmp: false, embed_vec: false },
+    features: { ggml_openmp: false, embed_vec: true },
   },
   {
     packageTag: "linux-x64",
