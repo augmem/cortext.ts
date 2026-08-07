@@ -190,6 +190,7 @@ test("build script keeps CMake and core checkout ownership explicit", () => {
   assert.match(script, /node_api\.def/);
   assert.match(script, /lib\.exe/);
   assert.match(script, /clang-cl/);
+  assert.match(script, /CORTEXT_ALLOW_CLANGCL_ARM=ON/);
   assert.match(script, /class-memaccess/);
   assert.match(script, /CORTEXT_GGML_OPENMP=OFF/);
   assert.match(script, /CMAKE_CXX_FLAGS=\/wd4127;\/wd4244;\/wd4456;\/wd4996;\/wd5054/);
@@ -263,7 +264,7 @@ test("release resolver rejects a tag that differs from package.json", () => {
     const result = spawnSync(process.execPath, [path.join(root, "scripts", "resolve-release.mjs")], {
       cwd: root,
       encoding: "utf8",
-      env: { ...process.env, GITHUB_OUTPUT: output, GITHUB_REF_TYPE: "branch", INPUT_TAG: "v9.9.9", INPUT_CORE_TAG: "v1.3.2" },
+      env: { ...process.env, GITHUB_OUTPUT: output, GITHUB_REF_TYPE: "branch", INPUT_TAG: "v9.9.9", INPUT_CORE_TAG: "v1.3.3" },
     });
     assert.notEqual(result.status, 0);
     assert.match(`${result.stdout}\n${result.stderr}`, /must exactly match package\.json version/);

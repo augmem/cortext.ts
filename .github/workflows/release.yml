@@ -13,13 +13,13 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Binding release tag (for example v1.3.2)"
+        description: "Binding release tag (for example v1.3.3)"
         required: false
         default: ""
       core_tag:
         description: "Exact required augmem/cortext.cpp semver tag containing the Node text-media wrapper and native fixes"
         required: true
-        default: "v1.3.2"
+        default: "v1.3.3"
 
 
 permissions:

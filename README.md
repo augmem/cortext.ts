@@ -7,8 +7,8 @@ This repository is the language-binding home for Node.js — the sibling of
 [`cortext.go`](https://github.com/augmem/cortext.go). It publishes the npm
 package **`@augmem/cortext`**.
 
-Binding **1.3.2** tracks the Cortext native API and release assets at
-[`augmem/cortext.cpp@v1.3.2`](https://github.com/augmem/cortext.cpp/tree/v1.3.2).
+Binding **1.3.3** tracks the Cortext native API and release assets at
+[`augmem/cortext.cpp@v1.3.3`](https://github.com/augmem/cortext.cpp/tree/v1.3.3).
 The native addon must be built from that same core tag; this wrapper does not
 provide a compatibility fallback for older addons because `processTextWithMedia`
 requires native support.
@@ -168,7 +168,7 @@ cd cortext.ts
 npm install
 
 # Build the host addon from the exact available core tag.
-CORTEXT_CORE_TAG=v1.3.2 npm run build:prebuild -- \
+CORTEXT_CORE_TAG=v1.3.3 npm run build:prebuild -- \
   --core-dir ../cortext.cpp \
   --target "$(node -p '`${process.platform}-${process.arch}`')"
 
@@ -202,9 +202,11 @@ package, configures CMake with `CORTEXT_BUILD_NODE_BINDINGS=ON`, and emits only
 `cortext.node` plus a small artifact sidecar. Every addon disables GGML
 OpenMP to avoid static `libgomp` relocations; every target retains embedded
 sqlite-vec and the generated manifest records that feature metadata. Windows
-builds use `node.lib`
-when the Node toolchain provides it; Linux ARM builds retain the targeted
-`class-memaccess` warning downgrade needed by Eigen. The release matrix runs
+builds use `node.lib` when the Node toolchain provides it, or generate it from
+the pinned `node-api-headers` `.def` file with Visual Studio `lib.exe`; Windows
+ARM uses the core `CORTEXT_ALLOW_CLANGCL_ARM=ON` opt-in with LLVM `clang-cl`.
+Linux ARM builds retain the targeted `class-memaccess` warning downgrade needed
+by Eigen. The release matrix runs
 this once on each of the six Node
 platforms. The collector independently checks out the exact core tag, verifies
 the commit and required `ffi/node/addon.cpp` methods, then copies only the six
@@ -216,7 +218,7 @@ C++ and N-API source is never duplicated here.
 For a local host build (the checkout must already be at the exact tag):
 
 ```bash
-CORTEXT_CORE_TAG=v1.3.2 npm run build:prebuild -- \
+CORTEXT_CORE_TAG=v1.3.3 npm run build:prebuild -- \
   --core-dir ../cortext.cpp --target "$(node -p '`${process.platform}-${process.arch}`')"
 ```
 
