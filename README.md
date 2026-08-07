@@ -167,12 +167,19 @@ git clone https://github.com/augmem/cortext.ts.git
 cd cortext.ts
 npm install
 
-# Build the matching v1.3.1 core N-API addons in ../cortext.cpp first, then:
-npm run vendor:prebuilds -- --from ../cortext.cpp/bindings/javascript/prebuilds
+# Build the host addon from the exact available core tag.
+CORTEXT_CORE_TAG=v1.3.1 npm run build:prebuild -- \
+  --core-dir ../cortext.cpp \
+  --target "$(node -p '`${process.platform}-${process.arch}`')"
 
 npm run build
-npm test
+npm run test:release
+# Full npm test additionally requires local AIST model assets.
 ```
+
+`npm run vendor:prebuilds` is retained only as a legacy compatibility helper;
+it is not the source of release artifacts and should not point at a nonexistent
+`bindings/javascript/prebuilds` tree.
 
 ### Build scripts
 

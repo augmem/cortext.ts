@@ -10,6 +10,8 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- `1.3.1` is the first published package release carrying the Node text-media
+  N-API wrapper and its matching six-platform prebuilds.
 - Release ownership moved to the TypeScript repository's six-runner CMake
   N-API prebuild pipeline. Addons are provenance-checked against the exact
   `augmem/cortext.cpp` `v1.3.1` core tag before publishing.

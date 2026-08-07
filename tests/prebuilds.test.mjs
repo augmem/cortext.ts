@@ -1,5 +1,5 @@
-import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -43,6 +43,23 @@ function run(command, args) {
   });
 }
 
+function fixtureAddon(tag) {
+  const addon = Buffer.alloc(4096, 0x5a);
+  if (tag.startsWith("linux-")) {
+    addon.set([0x7f, 0x45, 0x4c, 0x46, 2, 1], 0);
+    addon.writeUInt16LE(tag.endsWith("x64") ? 62 : 183, 18);
+  } else if (tag.startsWith("darwin-")) {
+    addon.set([0xcf, 0xfa, 0xed, 0xfe], 0);
+    addon.writeUInt32LE(tag.endsWith("x64") ? 0x01000007 : 0x0100000c, 4);
+  } else {
+    addon.set([0x4d, 0x5a], 0);
+    addon.writeUInt32LE(0x80, 0x3c);
+    addon.set([0x50, 0x45, 0x00, 0x00], 0x80);
+    addon.writeUInt16LE(tag.endsWith("x64") ? 0x8664 : 0xaa64, 0x84);
+  }
+  return addon;
+}
+
 function fixture() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "cortext-prebuild-test-"));
   const input = path.join(directory, "input");
@@ -64,9 +81,7 @@ function fixture() {
     // directory contains the target directory rather than flattening it.
     const dir = path.join(input, `prebuild-${tag}`, tag);
     fs.mkdirSync(dir, { recursive: true });
-    const bytes = crypto.createHash("sha256").update(tag).digest();
-    const addon = Buffer.alloc(4096);
-    for (let i = 0; i < addon.length; i += 1) addon[i] = bytes[i % bytes.length];
+    const addon = fixtureAddon(tag);
     const file = path.join(dir, "cortext.node");
     fs.writeFileSync(file, addon);
     fs.writeFileSync(path.join(dir, "build-metadata.json"), `${JSON.stringify({

@@ -16,8 +16,10 @@ release. It does **not** create the tag or publish the package.
 `processTextWithMedia` is a binding and native API contract. Every shipped
 addon is built by `.github/workflows/release.yml` from one exact
 [`augmem/cortext.cpp` tag](https://github.com/augmem/cortext.cpp/tags). The
-workflow's `core_tag` input is intentionally a placeholder until the matching
-follow-up core tag containing the Node text-media wrapper is available.
+available matching tag is `v1.3.1`, which contains the Node text-media wrapper;
+the workflow dispatch `core_tag` input defaults to that exact tag and accepts
+only another strict semver core tag when a later release is intentionally
+selected.
 
 The TypeScript repository owns the orchestration only:
 

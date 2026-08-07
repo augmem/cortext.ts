@@ -17,9 +17,9 @@ on:
         required: false
         default: ""
       core_tag:
-        description: "Exact augmem/cortext.cpp tag; replace the placeholder with the follow-up Node text-media core tag"
+        description: "Exact available augmem/cortext.cpp semver tag containing the Node text-media wrapper"
         required: true
-        default: "REPLACE_WITH_MATCHING_CORE_TAG"
+        default: "v1.3.1"
 
 
 permissions:

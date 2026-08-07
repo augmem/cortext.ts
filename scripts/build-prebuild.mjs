@@ -21,6 +21,7 @@ import {
   REQUIRED_SYMBOLS,
   assertCommit,
   assertGitTag,
+  assertNativeArtifact,
   hostTarget,
   sha256,
   targetFor,
@@ -229,6 +230,7 @@ function main() {
       const addon = findAddon(buildDir);
       const size = fs.statSync(addon).size;
       if (size < 1024) throw new Error(`CMake produced an implausibly small addon: ${addon}`);
+      assertNativeArtifact(addon, target);
       const destination = path.join(args.output, target);
       fs.rmSync(destination, { recursive: true, force: true });
       fs.mkdirSync(destination, { recursive: true });

@@ -24,6 +24,7 @@ import {
   TARGET_TAGS,
   assertCommit,
   assertGitTag,
+  assertNativeArtifact,
   readJson,
   sha256,
   writeJson,
@@ -187,6 +188,7 @@ function validateMetadata(metadataPath, artifactPath, expectedTag, expectedCommi
   }
   const size = fs.statSync(artifactPath).size;
   if (size < MIN_ADDON_BYTES) throw new Error(`${target} addon is too small (${size} bytes)`);
+  assertNativeArtifact(artifactPath, target);
   const digest = sha256(artifactPath);
   if (metadata.size !== size || metadata.sha256 !== digest) {
     throw new Error(`${target} metadata does not match ${artifactPath}`);

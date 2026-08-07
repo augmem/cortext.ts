@@ -13,6 +13,7 @@ import {
   TARGET_TAGS,
   assertCommit,
   assertCoreTag,
+  assertNativeArtifact,
   assertSha,
   assertSymbols,
   readJson,
@@ -109,6 +110,7 @@ function main() {
     }
     const size = fs.statSync(file).size;
     if (size !== entry.size) throw new Error(`${tag} size ${size} differs from manifest ${entry.size}`);
+    assertNativeArtifact(file, tag);
     const digest = sha256(file);
     if (digest !== entry.sha256) throw new Error(`${tag} SHA-256 differs from manifest`);
   }

@@ -162,3 +162,58 @@ export function assertCommit(value, description = "core_commit") {
     throw new Error(`${description} must be a 40-character commit SHA`);
   }
 }
+
+
+function expectedNativeFormat(packageTag) {
+  if (packageTag.startsWith("linux-")) return { format: "ELF", class: 2, machine: packageTag.endsWith("x64") ? 62 : 183 };
+  if (packageTag.startsWith("darwin-")) return { format: "Mach-O", class: 64, machine: packageTag.endsWith("x64") ? 0x01000007 : 0x0100000c };
+  return { format: "PE", machine: packageTag.endsWith("x64") ? 0x8664 : 0xaa64 };
+}
+
+/** Lightweight file-format/architecture gate; it does not load native code. */
+export function assertNativeArtifact(file, packageTag) {
+  const bytes = fs.readFileSync(file);
+  const expected = expectedNativeFormat(packageTag);
+  if (expected.format === "ELF") {
+    if (bytes.length < 20 || bytes[0] !== 0x7f || bytes.toString("ascii", 1, 4) !== "ELF") {
+      throw new Error(`${packageTag} is not an ELF addon`);
+    }
+    const elfClass = bytes[4];
+    const machine = bytes.readUInt16LE(18);
+    if (elfClass !== expected.class || machine !== expected.machine) {
+      throw new Error(`${packageTag} ELF class/machine mismatch (${elfClass}/${machine})`);
+    }
+    return;
+  }
+  if (expected.format === "Mach-O") {
+    if (bytes.length < 8) throw new Error(`${packageTag} is too small for Mach-O header`);
+    const magicBE = bytes.readUInt32BE(0);
+    const magicLE = bytes.readUInt32LE(0);
+    const thinLE = magicLE === 0xfeedfacf;
+    const thinBE = magicBE === 0xfeedfacf;
+    const fatBE = magicBE === 0xcafebabe;
+    const fatLE = magicLE === 0xcafebabe;
+    if (thinLE || thinBE) {
+      const machine = (thinLE ? bytes.readUInt32LE(4) : bytes.readUInt32BE(4)) >>> 0;
+      if (machine !== expected.machine) throw new Error(`${packageTag} Mach-O CPU mismatch (${machine})`);
+      return;
+    }
+    if (fatBE || fatLE) {
+      const read = fatLE ? (offset) => bytes.readUInt32LE(offset) : (offset) => bytes.readUInt32BE(offset);
+      const count = read(4);
+      if (count > 32 || 8 + count * 20 > bytes.length) throw new Error(`${packageTag} invalid Mach-O fat header`);
+      for (let i = 0; i < count; i += 1) {
+        if ((read(8 + i * 20) >>> 0) === expected.machine) return;
+      }
+      throw new Error(`${packageTag} Mach-O fat header has no expected CPU`);
+    }
+    throw new Error(`${packageTag} is not a supported 64-bit Mach-O addon`);
+  }
+  if (bytes.length < 64 || bytes[0] !== 0x4d || bytes[1] !== 0x5a) throw new Error(`${packageTag} is not a PE addon`);
+  const peOffset = bytes.readUInt32LE(0x3c);
+  if (peOffset + 6 > bytes.length || bytes.toString("ascii", peOffset, peOffset + 4) !== "PE\0\0") {
+    throw new Error(`${packageTag} has an invalid PE header`);
+  }
+  const machine = bytes.readUInt16LE(peOffset + 4);
+  if (machine !== expected.machine) throw new Error(`${packageTag} PE machine mismatch (${machine})`);
+}
