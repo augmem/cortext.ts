@@ -199,7 +199,10 @@ Prebuild binaries are **not** committed (GitHub size / cleanliness). The
 TypeScript-owned pipeline checks out or clones `augmem/cortext.cpp` at the
 explicit `--core-tag`, installs the pinned `node-api-headers` development
 package, configures CMake with `CORTEXT_BUILD_NODE_BINDINGS=ON`, and emits only
-`cortext.node` plus a small artifact sidecar. Windows builds use `node.lib`
+`cortext.node` plus a small artifact sidecar. Every addon disables GGML
+OpenMP to avoid static `libgomp` relocations; Linux ARM additionally disables
+embedded sqlite-vec and records that feature choice in the generated manifest.
+Windows builds use `node.lib`
 when the Node toolchain provides it; Linux ARM builds retain the targeted
 `class-memaccess` warning downgrade needed by Eigen. The release matrix runs
 this once on each of the six Node

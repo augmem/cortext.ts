@@ -101,6 +101,9 @@ function main() {
     if (entry.native_target !== expected.nativeTarget || entry.toolchain !== expected.toolchain || entry.abi !== expected.abi) {
       throw new Error(`${tag} has unexpected native target/toolchain metadata`);
     }
+    if (JSON.stringify(entry.features) !== JSON.stringify(expected.features)) {
+      throw new Error(`${tag} has unexpected feature metadata`);
+    }
     if (!Number.isInteger(entry.size) || entry.size < MIN_ADDON_BYTES) throw new Error(`${tag} has invalid size`);
     assertSha(entry.sha256, `${tag}.sha256`);
     const file = path.join(prebuilds, tag, "cortext.node");

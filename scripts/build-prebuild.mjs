@@ -286,6 +286,7 @@ function main() {
       "-DCORTEXT_BUILD_NODE_BINDINGS=ON",
       "-DCORTEXT_BUILD_EXAMPLES=OFF",
       "-DCORTEXT_BUILD_TOOLS=OFF",
+      "-DCORTEXT_GGML_OPENMP=OFF",
       "-DCORTEXT_NODE_EXECUTABLE=" + args.node,
     ];
     if (fs.existsSync(path.join(nodeHeaders, "node_api.h"))) {
@@ -298,7 +299,7 @@ function main() {
       configureArgs.push("-DCMAKE_C_COMPILER=" + clangCl, "-DCMAKE_CXX_COMPILER=" + clangCl);
     }
     if (process.platform === "linux" && process.arch === "arm64") {
-      configureArgs.push("-DCMAKE_CXX_FLAGS=-Wno-error=class-memaccess");
+      configureArgs.push("-DCORTEXT_EMBED_VEC=OFF", "-DCMAKE_CXX_FLAGS=-Wno-error=class-memaccess");
     }
     run(args.cmake, configureArgs, root);
     if (!args.configureOnly) {
@@ -323,6 +324,7 @@ function main() {
         native_target: targetConfig.nativeTarget,
         toolchain: targetConfig.toolchain,
         abi: targetConfig.abi,
+        features: targetConfig.features,
         core_tag: coreTag,
         core_commit: core.commit,
         napi: NAPI_VERSION,
