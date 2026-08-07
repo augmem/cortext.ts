@@ -1,6 +1,6 @@
 {
   "name": "@augmem/cortext",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "TypeScript and JavaScript bindings for the Cortext memory engine",
   "license": "Apache-2.0",
   "author": "augmem",
@@ -62,7 +62,11 @@
     "test:contract": "npm run build && node --test tests/contract.test.mjs",
     "vendor:prebuilds": "node scripts/vendor-prebuilds.mjs",
     "prepublishOnly": "npm run build && node scripts/check-prebuilds.mjs",
-    "pack:check": "npm pack --dry-run"
+    "pack:check": "npm pack --dry-run",
+    "build:prebuild": "node scripts/build-prebuild.mjs",
+    "collect:prebuilds": "node scripts/collect-prebuilds.mjs",
+    "check:prebuilds": "node scripts/check-prebuilds.mjs",
+    "test:release": "npm run build && node --test --test-name-pattern=\"^(published type declarations|published types expose safe|source typecheck|package exports|CJS require|ESM import|package\\.json follows|required root files|collector|build script|CI gates|release workflow|archive fixture|release resolver)\" tests/package.test.mjs tests/contract.test.mjs tests/prebuilds.test.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.17.0",

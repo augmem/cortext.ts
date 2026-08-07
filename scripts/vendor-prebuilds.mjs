@@ -2,11 +2,12 @@
 /**
  * Vendor N-API prebuilds into prebuilds/<platform>/cortext.node.
  *
+ * Local compatibility helper only. Release CI uses build-prebuild.mjs and
+ * collect-prebuilds.mjs so every addon has exact core-tag provenance.
  * Resolution order:
  *   1. --from <dir> (explicit)
  *   2. Matching core checkout: ../cortext.cpp/bindings/javascript/prebuilds
  *      (legacy ../cortext path is also accepted)
- *   3. Installed npm package @augmem/cortext (if present and distinct)
  *
  * Usage:
  *   node scripts/vendor-prebuilds.mjs
@@ -16,11 +17,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createRequire } from "node:module";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const destRoot = path.join(root, "prebuilds");
-const require = createRequire(import.meta.url);
 
 const TARGETS = [
   "darwin-arm64",
@@ -58,24 +57,6 @@ function findSiblingPrebuilds() {
   return candidates.find((candidate) =>
     fs.existsSync(path.join(candidate, "manifest.json"))
   ) ?? null;
-}
-
-function findInstalledNpmPrebuilds() {
-  try {
-    const pkgJson = require.resolve("@augmem/cortext/package.json");
-    const pkgRoot = path.dirname(pkgJson);
-    // Avoid copying from ourselves
-    if (path.resolve(pkgRoot) === path.resolve(root)) {
-      return null;
-    }
-    const pre = path.join(pkgRoot, "prebuilds");
-    if (fs.existsSync(path.join(pre, "manifest.json"))) {
-      return pre;
-    }
-  } catch {
-    // not installed
-  }
-  return null;
 }
 
 function vendorFrom(sourceDir, { hostOnly, force }) {
@@ -125,10 +106,7 @@ function vendorFrom(sourceDir, { hostOnly, force }) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const source =
-    (args.from && path.resolve(args.from)) ||
-    findSiblingPrebuilds() ||
-    findInstalledNpmPrebuilds();
+  const source = (args.from && path.resolve(args.from)) || findSiblingPrebuilds();
 
   if (!source) {
     console.error(
@@ -136,7 +114,7 @@ function main() {
         "  - Pass --from <dir> pointing at a prebuilds/ tree\n" +
         "  - Or place the matching core checkout at ../cortext.cpp with bindings/javascript/prebuilds\n" +
         "  - (Legacy) place the monorepo at ../cortext with bindings/javascript/prebuilds\n" +
-        "  - Or npm install a published @augmem/cortext that already ships prebuilds"
+        "  - Release CI uses scripts/build-prebuild.mjs instead of this helper"
     );
     process.exit(1);
   }

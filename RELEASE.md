@@ -1,33 +1,41 @@
-# cortext.ts v1.3.0 Release Metadata
+# cortext.ts v1.3.1 Release Metadata
 
-This document records the source and packaging contract for the `v1.3.0`
+This document records the source and packaging contract for the `v1.3.1`
 release. It does **not** create the tag or publish the package.
 
 ## Version and baseline
 
-- npm package: `@augmem/cortext@1.3.0`
-- Git tag to create after review: `v1.3.0`
-- Binding baseline: `351db23d032fa50fec15cb9b5c0b12fb9f961c0a` (merged PR #1)
-- Version surfaces: `package.json` and `package-lock.json` are both `1.3.0`.
+- npm package: `@augmem/cortext@1.3.1`
+- Git tag to create after review: `v1.3.1`
+- Binding baseline: this reviewed TypeScript-owned prebuild pipeline branch
+  (the immutable release SHA is resolved by CI before publication).
+- Version surfaces: `package.json` and `package-lock.json` are both `1.3.1`.
 
 ## Native/core source of truth
 
-`processTextWithMedia` is a binding and native API contract. The release must
-stage N-API addons built from the matching
-[`augmem/cortext.cpp` `v1.3.0` tag](https://github.com/augmem/cortext.cpp/tree/v1.3.0);
-do not reuse `v1.2.4` (or another older) addon. Build the core JavaScript
-package from that tag, then copy its `bindings/javascript/prebuilds/` tree into
-this repository with:
+`processTextWithMedia` is a binding and native API contract. Every shipped
+addon is built by `.github/workflows/release.yml` from one exact
+[`augmem/cortext.cpp` tag](https://github.com/augmem/cortext.cpp/tags). The
+available matching tag is `v1.3.1`, which contains the Node text-media wrapper;
+the workflow dispatch `core_tag` input defaults to that exact tag and accepts
+only another strict semver core tag when a later release is intentionally
+selected.
 
-```bash
-npm run vendor:prebuilds -- \
-  --from ../cortext.cpp/bindings/javascript/prebuilds --force
-node scripts/check-prebuilds.mjs
-```
+The TypeScript repository owns the orchestration only:
 
-The matching shared native/model source is the core release asset
-[`cortext-assets-1.3.0.tar.gz`](https://github.com/augmem/cortext.cpp/releases/download/v1.3.0/cortext-assets-1.3.0.tar.gz).
-The asset and N-API build must come from the same core tag.
+1. Each of the six host runners checks out/downloads the requested core tag.
+2. CMake is configured with `CORTEXT_BUILD_NODE_BINDINGS=ON` and builds the
+   `cortext_node` target.
+3. A publish job checks out the exact core tag independently, verifies its
+   commit and `ffi/node/addon.cpp` methods, then collects all six `cortext.node`
+   files and writes `prebuilds/manifest.json` with the core tag, commit,
+   SHA-256 hashes, N-API version, JS-visible symbol contract, native CMake
+   target, runner toolchain, and ABI.
+4. Publish and release upload run only after `check-prebuilds.mjs` passes.
+
+No core addon source is copied into this repository. The old
+`vendor:prebuilds` command remains only as a local compatibility helper and is
+not used by release CI.
 
 ## Verification before tagging
 
@@ -36,10 +44,27 @@ npm ci
 npm run typecheck
 npm run build
 npm test
+npm run test:release
 npm pack --dry-run
-node scripts/check-prebuilds.mjs
 git diff --check
 ```
 
-Only after review and all checks pass should a maintainer create/push `v1.3.0`
-and allow `.github/workflows/release.yml` to publish.
+Release CI runs `npm run test:release` rather than the full model-inference
+suite: this validates the package, declarations, wrapper contract, and
+prebuild checks without downloading the approximately 142 MiB AIST GGUF. Full
+`npm test` remains the local/model-equipped runtime suite.
+
+Native verification is performed in the release workflow after the six matrix
+artifacts are collected:
+
+```bash
+node scripts/check-prebuilds.mjs --core-tag v1.3.1 --core-commit <matching-core-commit>
+```
+
+The workflow packs exactly `@augmem/cortext@<version>`, verifies the tarball
+filename/metadata, verifies the remote release tag resolves to the immutable
+checkout SHA, and refuses to clobber an existing GitHub release asset.
+
+Only after review and all checks pass should a maintainer create/push the
+binding tag and allow `.github/workflows/release.yml` to publish. Do not merge,
+tag, or publish from an implementation branch.
