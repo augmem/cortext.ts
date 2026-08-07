@@ -57,7 +57,7 @@ jobs:
           set -euo pipefail
           # Prefer a temporary install of the last published package as a prebuild source
           # for pre-publish smoke tests only; the release workflow requires matching
-          # v1.3.2 core/native artifacts and never falls back to this source.
+          # v1.3.3 core/native artifacts and never falls back to this source.
           # Falls back to a core checkout when present (self-hosted / multi-checkout CI).
           mkdir -p /tmp/cortext-prebuild-src
           npm pack @augmem/cortext@${{ env.PKG_VERSION || '1.2.4' }} --pack-destination /tmp/cortext-prebuild-src || true

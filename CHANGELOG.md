@@ -6,17 +6,25 @@ documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
-## [1.3.2] - Unreleased
+## [1.3.3] - Unreleased
 
 ### Changed
 
-- `1.3.2` is the first intended published package release carrying the Node
+- `1.3.3` is the first intended published package release carrying the Node
   text-media N-API wrapper and its matching six-platform prebuilds.
 - Release ownership moved to the TypeScript repository's six-runner CMake
   N-API prebuild pipeline. Addons are provenance-checked against the exact
-  `augmem/cortext.cpp` `v1.3.2` core tag before publishing.
+  `augmem/cortext.cpp` `v1.3.3` core tag before publishing.
 - Generated prebuilds and manifests are release artifacts and are not tracked
   in the source checkout.
+
+## [1.3.2] - Canceled pre-publish dry run
+
+### Notes
+
+- Validation dry runs were canceled before npm or GitHub publication while
+  the core Node text-media and native build fixes were completed. No
+  `@augmem/cortext@1.3.2` package or release was published.
 
 ## [1.3.1] - Canceled pre-publish dry run
 

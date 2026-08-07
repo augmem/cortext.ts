@@ -7,8 +7,8 @@
  * a small provenance sidecar are emitted under --output.
  *
  * Examples:
- *   node scripts/build-prebuild.mjs --core-tag v1.3.2 --target linux-x64
- *   CORTEXT_CORE_TAG=v1.3.2 npm run build:prebuild -- --target darwin-arm64
+ *   node scripts/build-prebuild.mjs --core-tag v1.3.3 --target linux-x64
+ *   CORTEXT_CORE_TAG=v1.3.3 npm run build:prebuild -- --target darwin-arm64
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -297,6 +297,12 @@ function main() {
     }
     if (clangCl) {
       configureArgs.push("-DCMAKE_C_COMPILER=" + clangCl, "-DCMAKE_CXX_COMPILER=" + clangCl);
+    }
+    if (process.platform === "win32" && target === "win32-arm64") {
+      configureArgs.push("-DCORTEXT_ALLOW_CLANGCL_ARM=ON");
+    }
+    if (process.platform === "win32") {
+      configureArgs.push("-DCMAKE_CXX_FLAGS=/wd4127;/wd4244;/wd4456;/wd4996;/wd5054");
     }
     if (process.platform === "linux" && process.arch === "arm64") {
       configureArgs.push("-DCMAKE_CXX_FLAGS=-Wno-error=class-memaccess");
