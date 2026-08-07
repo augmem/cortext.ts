@@ -10,36 +10,42 @@ export const TARGETS = [
     nativeTarget: "aarch64-apple-darwin",
     toolchain: "macos-14 (CMake native)",
     abi: "macOS 14 arm64 runner ABI",
+    features: { ggml_openmp: false, embed_vec: true },
   },
   {
     packageTag: "darwin-x64",
     nativeTarget: "x86_64-apple-darwin",
     toolchain: "macos-15-intel (CMake native)",
     abi: "macOS 15 Intel x86_64 runner ABI",
+    features: { ggml_openmp: false, embed_vec: true },
   },
   {
     packageTag: "linux-arm64",
     nativeTarget: "aarch64-linux-gnu",
     toolchain: "ubuntu-24.04-arm (CMake native)",
     abi: "glibc >= 2.39; ubuntu-24.04-arm runner ABI",
+    features: { ggml_openmp: false, embed_vec: false },
   },
   {
     packageTag: "linux-x64",
     nativeTarget: "x86_64-linux-gnu",
     toolchain: "ubuntu-22.04 (CMake native)",
     abi: "glibc >= 2.35; ubuntu-22.04 runner ABI",
+    features: { ggml_openmp: false, embed_vec: true },
   },
   {
     packageTag: "win32-arm64",
     nativeTarget: "aarch64-windows-msvc",
     toolchain: "windows-11-arm (CMake native)",
     abi: "Windows 11 ARM64 runner ABI",
+    features: { ggml_openmp: false, embed_vec: true },
   },
   {
     packageTag: "win32-x64",
     nativeTarget: "x86_64-windows-msvc",
     toolchain: "windows-2022 (CMake native)",
     abi: "Windows 2022 x64 runner ABI",
+    features: { ggml_openmp: false, embed_vec: true },
   },
 ];
 

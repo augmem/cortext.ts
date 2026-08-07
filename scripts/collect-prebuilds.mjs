@@ -213,6 +213,7 @@ function main() {
         native_target: target.nativeTarget,
         toolchain: target.toolchain,
         abi: target.abi,
+        features: target.features,
         artifact: "cortext.node",
         size: checked.size,
         sha256: checked.sha256,

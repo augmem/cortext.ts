@@ -120,6 +120,8 @@ test("collector writes a complete core-tag and symbol manifest", () => {
     assert.doesNotMatch(JSON.stringify(manifest), /zig_target|gnu\.2\.17/);
     assert.deepEqual(manifest.symbols, symbols);
     assert.equal(manifest.targets[0].toolchain.includes("CMake native"), true);
+    assert.deepEqual(manifest.targets.find((entry) => entry.package_tag === "linux-arm64").features, { ggml_openmp: false, embed_vec: false });
+    assert.deepEqual(manifest.targets.find((entry) => entry.package_tag === "linux-x64").features, { ggml_openmp: false, embed_vec: true });
     assert.deepEqual(manifest.targets.map((entry) => entry.package_tag).sort(), targets.map(([tag]) => tag).sort());
 
     const checked = run(checkScript, [
@@ -189,6 +191,8 @@ test("build script keeps CMake and core checkout ownership explicit", () => {
   assert.match(script, /lib\.exe/);
   assert.match(script, /clang-cl/);
   assert.match(script, /class-memaccess/);
+  assert.match(script, /CORTEXT_GGML_OPENMP=OFF/);
+  assert.match(script, /CORTEXT_EMBED_VEC=OFF/);
 });
 test("CI gates strict provenance checks for v2 manifests", () => {
   const workflow = fs.readFileSync(path.join(root, ".github", "workflows", "ci.yml"), "utf8");
@@ -258,7 +262,7 @@ test("release resolver rejects a tag that differs from package.json", () => {
     const result = spawnSync(process.execPath, [path.join(root, "scripts", "resolve-release.mjs")], {
       cwd: root,
       encoding: "utf8",
-      env: { ...process.env, GITHUB_OUTPUT: output, GITHUB_REF_TYPE: "branch", INPUT_TAG: "v9.9.9", INPUT_CORE_TAG: "v1.3.1" },
+      env: { ...process.env, GITHUB_OUTPUT: output, GITHUB_REF_TYPE: "branch", INPUT_TAG: "v9.9.9", INPUT_CORE_TAG: "v1.3.2" },
     });
     assert.notEqual(result.status, 0);
     assert.match(`${result.stdout}\n${result.stderr}`, /must exactly match package\.json version/);
