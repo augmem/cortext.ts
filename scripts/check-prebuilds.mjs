@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  BUILD_SYSTEM,
   MIN_ADDON_BYTES,
   NAPI_VERSION,
   PREBUILD_SCHEMA,
@@ -70,6 +71,7 @@ function main() {
     }
   }
   if (manifest.napi !== NAPI_VERSION) throw new Error(`manifest N-API must be ${NAPI_VERSION}`);
+  if (manifest.build_system !== BUILD_SYSTEM) throw new Error(`manifest build_system must be ${BUILD_SYSTEM}`);
   assertSymbols(manifest.symbols, "manifest.symbols");
 
   const required = args.hostOnly
@@ -95,7 +97,9 @@ function main() {
     if (entry.core_tag !== manifest.core_tag || entry.core_commit !== manifest.core_commit) {
       throw new Error(`${tag} target provenance differs from manifest core provenance`);
     }
-    if (entry.zig_target !== expected.zigTarget) throw new Error(`${tag} has unexpected target mapping`);
+    if (entry.native_target !== expected.nativeTarget || entry.toolchain !== expected.toolchain || entry.abi !== expected.abi) {
+      throw new Error(`${tag} has unexpected native target/toolchain metadata`);
+    }
     if (!Number.isInteger(entry.size) || entry.size < MIN_ADDON_BYTES) throw new Error(`${tag} has invalid size`);
     assertSha(entry.sha256, `${tag}.sha256`);
     const file = path.join(prebuilds, tag, "cortext.node");

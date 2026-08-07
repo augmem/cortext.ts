@@ -23,9 +23,11 @@ The TypeScript repository owns the orchestration only:
 1. Each of the six host runners checks out/downloads the requested core tag.
 2. CMake is configured with `CORTEXT_BUILD_NODE_BINDINGS=ON` and builds the
    `cortext_node` target.
-3. A publish job collects all six `cortext.node` files and writes
-   `prebuilds/manifest.json` with the core tag, commit, SHA-256 hashes, N-API
-   version, and JS-visible symbol contract.
+3. A publish job checks out the exact core tag independently, verifies its
+   commit and `ffi/node/addon.cpp` methods, then collects all six `cortext.node`
+   files and writes `prebuilds/manifest.json` with the core tag, commit,
+   SHA-256 hashes, N-API version, JS-visible symbol contract, native CMake
+   target, runner toolchain, and ABI.
 4. Publish and release upload run only after `check-prebuilds.mjs` passes.
 
 No core addon source is copied into this repository. The old
@@ -55,6 +57,10 @@ artifacts are collected:
 ```bash
 node scripts/check-prebuilds.mjs --core-tag <matching-core-tag>
 ```
+
+The workflow packs exactly `@augmem/cortext@<version>`, verifies the tarball
+filename/metadata, verifies the remote release tag resolves to the immutable
+checkout SHA, and refuses to clobber an existing GitHub release asset.
 
 Only after review and all checks pass should a maintainer create/push the
 binding tag and allow `.github/workflows/release.yml` to publish. Do not merge,

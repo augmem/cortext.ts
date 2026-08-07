@@ -34,6 +34,13 @@ Node.js **18+**. Prebuilt N-API addons ship for:
 | `win32-x64`    | Windows x64      |
 | `win32-arm64`  | Windows ARM64    |
 
+Release addons are built natively with CMake on the named GitHub runner for
+each target; they are not Zig cross-builds and the manifest does not promise a
+portable glibc baseline. Linux x64 uses the Ubuntu 22.04 runner ABI (glibc
+>= 2.35), Linux arm64 uses Ubuntu 24.04 ARM (glibc >= 2.39), and macOS/Windows
+use their documented native runner ABIs. Consumers needing older Linux
+systems must provide a compatible addon through `CORTEXT_NODE_ADDON_PATH`.
+
 The package does **not** embed the large AIST GGUF model. Release natives embed
 AIST and assemble it on first create. Optional overrides:
 
@@ -176,7 +183,7 @@ npm test
 | `npm test` | Build + all `node:test` checks (requires native model assets) |
 | `npm run test:release` | Build + package/prebuild/contract checks without model inference |
 | `npm run build:prebuild -- --core-tag <tag>` | Build one host addon from an exact core tag |
-| `npm run collect:prebuilds -- --input <dir> --core-tag <tag>` | Collect the six matrix outputs and write the manifest |
+| `npm run collect:prebuilds -- --input <dir> --core-tag <tag> --core-dir <checkout>` | Collect outputs and independently verify core provenance |
 | `npm run check:prebuilds -- --core-tag <tag>` | Verify all six files, hashes, symbols, and core provenance |
 | `npm run vendor:prebuilds` | Legacy local copy helper (not used by release CI) |
 | `npm run pack:check` | `npm pack --dry-run` |
@@ -185,11 +192,13 @@ Prebuild binaries are **not** committed (GitHub size / cleanliness). The
 TypeScript-owned pipeline checks out or clones `augmem/cortext.cpp` at the
 explicit `--core-tag`, configures CMake with
 `CORTEXT_BUILD_NODE_BINDINGS=ON`, and emits only `cortext.node` plus a small
-provenance sidecar. The release matrix runs this once on each of the six Node
-platforms. The collector copies only the six addons, writes
-`prebuilds/manifest.json` with the exact core tag/commit and required
-JS-visible symbols, and the publish job refuses to proceed until the complete
-manifest validates. Core C++ and N-API source is never duplicated here.
+artifact sidecar. The release matrix runs this once on each of the six Node
+platforms. The collector independently checks out the exact core tag, verifies
+the commit and required `ffi/node/addon.cpp` methods, then copies only the six
+addons and writes `prebuilds/manifest.json` with core provenance, hashes,
+required JS-visible symbols, native targets, runner toolchains, and ABI notes.
+The publish job refuses to proceed until the complete manifest validates. Core
+C++ and N-API source is never duplicated here.
 
 For a local host build (the checkout must already be at the exact tag):
 

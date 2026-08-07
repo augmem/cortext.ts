@@ -5,17 +5,48 @@ import crypto from "node:crypto";
 import path from "node:path";
 
 export const TARGETS = [
-  { packageTag: "darwin-arm64", zigTarget: "aarch64-macos" },
-  { packageTag: "darwin-x64", zigTarget: "x86_64-macos" },
-  { packageTag: "linux-arm64", zigTarget: "aarch64-linux-gnu.2.17" },
-  { packageTag: "linux-x64", zigTarget: "x86_64-linux-gnu.2.17" },
-  { packageTag: "win32-arm64", zigTarget: "aarch64-windows-gnu" },
-  { packageTag: "win32-x64", zigTarget: "x86_64-windows-gnu" },
+  {
+    packageTag: "darwin-arm64",
+    nativeTarget: "aarch64-apple-darwin",
+    toolchain: "macos-14 (CMake native)",
+    abi: "macOS 14 arm64 runner ABI",
+  },
+  {
+    packageTag: "darwin-x64",
+    nativeTarget: "x86_64-apple-darwin",
+    toolchain: "macos-15-intel (CMake native)",
+    abi: "macOS 15 Intel x86_64 runner ABI",
+  },
+  {
+    packageTag: "linux-arm64",
+    nativeTarget: "aarch64-linux-gnu",
+    toolchain: "ubuntu-24.04-arm (CMake native)",
+    abi: "glibc >= 2.39; ubuntu-24.04-arm runner ABI",
+  },
+  {
+    packageTag: "linux-x64",
+    nativeTarget: "x86_64-linux-gnu",
+    toolchain: "ubuntu-22.04 (CMake native)",
+    abi: "glibc >= 2.35; ubuntu-22.04 runner ABI",
+  },
+  {
+    packageTag: "win32-arm64",
+    nativeTarget: "aarch64-windows-msvc",
+    toolchain: "windows-11-arm (CMake native)",
+    abi: "Windows 11 ARM64 runner ABI",
+  },
+  {
+    packageTag: "win32-x64",
+    nativeTarget: "x86_64-windows-msvc",
+    toolchain: "windows-2022 (CMake native)",
+    abi: "Windows 2022 x64 runner ABI",
+  },
 ];
 
 export const TARGET_TAGS = TARGETS.map(({ packageTag }) => packageTag);
 export const PREBUILD_SCHEMA = "augmem.cortext.node.prebuilds.v2";
 export const BUILD_METADATA_SCHEMA = "augmem.cortext.node.build.v1";
+export const BUILD_SYSTEM = "cmake-native";
 export const NAPI_VERSION = 8;
 export const MIN_ADDON_BYTES = 1024;
 
@@ -71,6 +102,28 @@ export function assertCoreTag(tag) {
   if (/\s/.test(tag) || /^(?:TODO|TBD|REPLACE_WITH_MATCHING_CORE_TAG)$/i.test(tag)) {
     throw new Error(`invalid placeholder core tag: ${tag}`);
   }
+  return tag;
+}
+
+export function assertGitTag(tag, description = "git tag") {
+  assertCoreTag(tag);
+  if (!/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(tag) || tag.includes("..") || tag.endsWith("/") || tag.endsWith(".")) {
+    throw new Error(`${description} is not a safe git tag: ${tag}`);
+  }
+  return tag;
+}
+
+export function assertReleaseVersion(version) {
+  if (typeof version !== "string" || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.test(version)) {
+    throw new Error(`package version is not strict semver: ${version}`);
+  }
+  return version;
+}
+
+export function assertVersionTag(tag, description = "version tag") {
+  assertGitTag(tag, description);
+  if (!tag.startsWith("v")) throw new Error(`${description} must start with v`);
+  assertReleaseVersion(tag.slice(1));
   return tag;
 }
 

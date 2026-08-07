@@ -19,7 +19,7 @@ import {
   BUILD_METADATA_SCHEMA,
   NAPI_VERSION,
   REQUIRED_SYMBOLS,
-  assertCoreTag,
+  assertGitTag,
   hostTarget,
   sha256,
   targetFor,
@@ -177,7 +177,7 @@ function findAddon(buildDir) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const coreTag = assertCoreTag(args.coreTag);
+  const coreTag = assertGitTag(args.coreTag, "core tag");
   const target = args.target ?? hostTarget();
   targetFor(target);
   if (target !== hostTarget()) {
@@ -223,9 +223,13 @@ function main() {
       const outputAddon = path.join(destination, "cortext.node");
       fs.copyFileSync(addon, outputAddon);
       if (process.platform !== "win32") fs.chmodSync(outputAddon, 0o755);
+      const targetConfig = targetFor(target);
       writeJson(path.join(destination, "build-metadata.json"), {
         schema: BUILD_METADATA_SCHEMA,
         package_tag: target,
+        native_target: targetConfig.nativeTarget,
+        toolchain: targetConfig.toolchain,
+        abi: targetConfig.abi,
         core_tag: coreTag,
         core_commit: core.commit,
         napi: NAPI_VERSION,

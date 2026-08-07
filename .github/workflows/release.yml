@@ -1,9 +1,10 @@
 name: Release npm package
 
 # Build ownership lives here (the TypeScript binding repository): each matrix
-# runner checks out the exact core tag, enables CORTEXT_BUILD_NODE_BINDINGS,
-# and uploads only its cortext.node. The publish job cannot run until the
-# collector has all six artifacts and has written a matching manifest.
+# runner checks out the immutable binding commit, then builds the exact core
+# tag with CORTEXT_BUILD_NODE_BINDINGS=ON and uploads only its cortext.node.
+# The publish job cannot run until the collector has all six artifacts and has
+# written a matching manifest.
 
 on:
   push:
@@ -22,14 +23,15 @@ on:
 
 
 permissions:
-  contents: write
-  id-token: write
+  contents: read
 
 jobs:
   resolve:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
-      checkout_ref: ${{ steps.ref.outputs.checkout_ref }}
+      checkout_sha: ${{ steps.version.outputs.checkout_sha }}
       tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
       core_tag: ${{ steps.version.outputs.core_tag }}
@@ -42,49 +44,34 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -n "$INPUT_TAG" ]]; then
+            [[ "$INPUT_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)([-+][A-Za-z0-9.-]+)?$ ]] || {
+              echo "tag input must be a strict vMAJOR.MINOR.PATCH semver" >&2
+              exit 1
+            }
             REF="$INPUT_TAG"
           else
             REF="${GITHUB_REF}"
           fi
-          echo "checkout_ref=$REF" >> "$GITHUB_OUTPUT"
+          [[ "$REF" != *$'\n'* && "$REF" != *$'\r'* ]] || exit 1
+          printf 'checkout_ref=%s\n' "$REF" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v4
         with:
           ref: ${{ steps.ref.outputs.checkout_ref }}
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Resolve binding and core versions
+      - name: Resolve and validate immutable release
         id: version
         env:
           INPUT_TAG: ${{ inputs.tag }}
           INPUT_CORE_TAG: ${{ inputs.core_tag }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -n "$INPUT_TAG" ]]; then
-            TAG="$INPUT_TAG"
-          elif [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            TAG="$GITHUB_REF_NAME"
-          else
-            TAG="v$(node -p "require('./package.json').version")"
-          fi
-          VERSION="${TAG#v}"
-          # Pushes default to the same versioned core tag. Manual dispatch is
-          # intentionally explicit so a follow-up core tag can be consumed.
-          if [[ -n "$INPUT_CORE_TAG" && "$INPUT_CORE_TAG" != "REPLACE_WITH_MATCHING_CORE_TAG" ]]; then
-            CORE_TAG="$INPUT_CORE_TAG"
-          elif [[ "${GITHUB_REF_TYPE}" == "tag" && -z "$INPUT_TAG" ]]; then
-            CORE_TAG="v${VERSION}"
-          else
-            echo "core_tag is required: replace the workflow placeholder with the matching augmem/cortext.cpp tag" >&2
-            exit 1
-          fi
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "core_tag=$CORE_TAG" >> "$GITHUB_OUTPUT"
-          echo "binding=$TAG core=$CORE_TAG"
+        run: node scripts/resolve-release.mjs
 
   build:
     needs: resolve
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -94,7 +81,7 @@ jobs:
           - target: linux-arm64
             os: ubuntu-24.04-arm
           - target: darwin-x64
-            os: macos-13
+            os: macos-15-intel
           - target: darwin-arm64
             os: macos-14
           - target: win32-x64
@@ -105,7 +92,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.resolve.outputs.checkout_ref }}
+          ref: ${{ needs.resolve.outputs.checkout_sha }}
+          fetch-depth: 1
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -127,22 +116,37 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: prebuild-${{ matrix.target }}
-          path: ${{ runner.temp }}/cortext-prebuild/${{ matrix.target }}
+          # Preserve <target>/cortext.node inside the downloaded artifact.
+          path: ${{ runner.temp }}/cortext-prebuild
           if-no-files-found: error
 
   publish:
     needs: [resolve, build]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.resolve.outputs.checkout_ref }}
+          ref: ${{ needs.resolve.outputs.checkout_sha }}
+          fetch-depth: 1
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
           cache: npm
+
+      - name: Checkout exact core tag for independent provenance proof
+        uses: actions/checkout@v4
+        with:
+          repository: augmem/cortext.cpp
+          ref: ${{ needs.resolve.outputs.core_tag }}
+          path: core-checkout
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Download all six matrix prebuilds
         uses: actions/download-artifact@v4
@@ -157,12 +161,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          CORE_DIR="$GITHUB_WORKSPACE/core-checkout"
+          CORE_COMMIT="$(git -C "$CORE_DIR" rev-parse HEAD)"
+          CORE_CHECKED_TAG="$(git -C "$CORE_DIR" describe --tags --exact-match HEAD)"
+          [[ "$CORE_CHECKED_TAG" == "$CORE_TAG" ]]
+          [[ "$CORE_COMMIT" =~ ^[a-f0-9]{40}$ ]]
           node scripts/collect-prebuilds.mjs \
             --input "$RUNNER_TEMP/cortext-prebuild-input" \
             --output prebuilds \
             --core-tag "$CORE_TAG" \
+            --core-dir "$CORE_DIR" \
+            --expected-core-commit "$CORE_COMMIT" \
             --force
-          node scripts/check-prebuilds.mjs --core-tag "$CORE_TAG"
+          node scripts/check-prebuilds.mjs --core-tag "$CORE_TAG" --core-commit "$CORE_COMMIT"
 
       - name: Install dependencies
         run: npm ci
@@ -178,31 +189,58 @@ jobs:
           node scripts/check-prebuilds.mjs --core-tag "$CORE_TAG"
           npm pack --dry-run
 
+      - name: Pack exact release tarball
+        id: pack
+        env:
+          RELEASE_VERSION: ${{ needs.resolve.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm pack --ignore-scripts --json > "$RUNNER_TEMP/npm-pack.json"
+          TGZ="$(node scripts/verify-release-package.mjs \
+            --pack-json "$RUNNER_TEMP/npm-pack.json" \
+            --version "$RELEASE_VERSION")"
+          printf 'file=%s\n' "$TGZ" >> "$GITHUB_OUTPUT"
+
+      - name: Verify release tag commit before publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+          RELEASE_COMMIT: ${{ needs.resolve.outputs.checkout_sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/verify-github-tag.mjs
+
       - name: Publish npm package
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --access public --provenance
 
-      - name: Create GitHub Release
+      - name: Create or upload GitHub Release without clobbering
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.resolve.outputs.version }}
           CORE_TAG: ${{ needs.resolve.outputs.core_tag }}
+          TGZ: ${{ steps.pack.outputs.file }}
         shell: bash
         run: |
           set -euo pipefail
-          npm pack --ignore-scripts
-          TGZ="$(ls augmem-cortext-*.tgz | head -1)"
           NOTES="$(mktemp)"
           {
-            echo "## @augmem/cortext ${{ needs.resolve.outputs.version }}"
+            echo "## @augmem/cortext $RELEASE_VERSION"
             echo
             echo "N-API prebuilds built by the TypeScript package pipeline from augmem/cortext.cpp@$CORE_TAG."
             echo
             echo '```bash'
-            echo "npm install @augmem/cortext@${{ needs.resolve.outputs.version }}"
+            echo "npm install @augmem/cortext@$RELEASE_VERSION"
             echo '```'
           } > "$NOTES"
-          gh release create "${{ needs.resolve.outputs.tag }}" "$TGZ" \
-            --title "cortext.ts ${{ needs.resolve.outputs.version }}" \
-            --notes-file "$NOTES" \
-            --verify-tag || gh release upload "${{ needs.resolve.outputs.tag }}" "$TGZ" --clobber
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; uploading exact tarball without clobber"
+            gh release upload "$RELEASE_TAG" "$TGZ"
+          else
+            gh release create "$RELEASE_TAG" "$TGZ" \
+              --title "cortext.ts $RELEASE_VERSION" \
+              --notes-file "$NOTES" \
+              --verify-tag
+          fi

@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
@@ -28,12 +28,12 @@ const symbols = [
   "lastError",
 ];
 const targets = [
-  ["darwin-arm64", "aarch64-macos"],
-  ["darwin-x64", "x86_64-macos"],
-  ["linux-arm64", "aarch64-linux-gnu.2.17"],
-  ["linux-x64", "x86_64-linux-gnu.2.17"],
-  ["win32-arm64", "aarch64-windows-gnu"],
-  ["win32-x64", "x86_64-windows-gnu"],
+  ["darwin-arm64", "aarch64-apple-darwin"],
+  ["darwin-x64", "x86_64-apple-darwin"],
+  ["linux-arm64", "aarch64-linux-gnu"],
+  ["linux-x64", "x86_64-linux-gnu"],
+  ["win32-arm64", "aarch64-windows-msvc"],
+  ["win32-x64", "x86_64-windows-msvc"],
 ];
 
 function run(command, args) {
@@ -48,9 +48,21 @@ function fixture() {
   const input = path.join(directory, "input");
   const output = path.join(directory, "output", "prebuilds");
   const coreTag = "v9.9.9-node-text-media";
-  const coreCommit = "a".repeat(40);
+  const coreDir = path.join(directory, "core");
+  fs.mkdirSync(path.join(coreDir, "ffi", "node"), { recursive: true });
+  fs.writeFileSync(path.join(coreDir, "ffi", "node", "addon.cpp"), symbols.join("\n"));
+  fs.writeFileSync(path.join(coreDir, "CMakeLists.txt"), "CORTEXT_BUILD_NODE_BINDINGS");
+  execFileSync("git", ["init", "-q"], { cwd: coreDir });
+  execFileSync("git", ["config", "user.email", "test@example.invalid"], { cwd: coreDir });
+  execFileSync("git", ["config", "user.name", "Pipeline Test"], { cwd: coreDir });
+  execFileSync("git", ["add", "."], { cwd: coreDir });
+  execFileSync("git", ["commit", "-qm", "core fixture"], { cwd: coreDir });
+  execFileSync("git", ["tag", coreTag], { cwd: coreDir });
+  const coreCommit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: coreDir, encoding: "utf8" }).trim();
   for (const [tag] of targets) {
-    const dir = path.join(input, `artifact-${tag}`, tag);
+    // Mirrors actions/download-artifact merge-multiple:false: each artifact
+    // directory contains the target directory rather than flattening it.
+    const dir = path.join(input, `prebuild-${tag}`, tag);
     fs.mkdirSync(dir, { recursive: true });
     const bytes = crypto.createHash("sha256").update(tag).digest();
     const addon = Buffer.alloc(4096);
@@ -60,16 +72,19 @@ function fixture() {
     fs.writeFileSync(path.join(dir, "build-metadata.json"), `${JSON.stringify({
       schema: "augmem.cortext.node.build.v1",
       package_tag: tag,
+      native_target: targets.find(([name]) => name === tag)[1],
+      toolchain: "forged sidecar value",
+      abi: "forged sidecar value",
       core_tag: coreTag,
-      core_commit: coreCommit,
+      core_commit: "b".repeat(40),
       napi: 8,
-      symbols,
+      symbols: ["forged sidecar symbols"],
       artifact: "cortext.node",
       size: addon.length,
       sha256: crypto.createHash("sha256").update(addon).digest("hex"),
     })}\n`);
   }
-  return { directory, input, output, coreTag, coreCommit };
+  return { directory, input, output, coreTag, coreDir, coreCommit };
 }
 
 test("collector writes a complete core-tag and symbol manifest", () => {
@@ -79,13 +94,17 @@ test("collector writes a complete core-tag and symbol manifest", () => {
       "--input", paths.input,
       "--output", paths.output,
       "--core-tag", paths.coreTag,
+      "--core-dir", paths.coreDir,
       "--force",
     ]);
     assert.equal(collected.status, 0, collected.stderr);
     const manifest = JSON.parse(fs.readFileSync(path.join(paths.output, "manifest.json"), "utf8"));
     assert.equal(manifest.core_tag, paths.coreTag);
     assert.equal(manifest.core_commit, paths.coreCommit);
+    assert.equal(manifest.build_system, "cmake-native");
+    assert.doesNotMatch(JSON.stringify(manifest), /zig_target|gnu\.2\.17/);
     assert.deepEqual(manifest.symbols, symbols);
+    assert.equal(manifest.targets[0].toolchain.includes("CMake native"), true);
     assert.deepEqual(manifest.targets.map((entry) => entry.package_tag).sort(), targets.map(([tag]) => tag).sort());
 
     const checked = run(checkScript, [
@@ -102,7 +121,7 @@ test("collector writes a complete core-tag and symbol manifest", () => {
 test("collector rejects a matrix artifact from a different core tag", () => {
   const paths = fixture();
   try {
-    const metadata = path.join(paths.input, "artifact-linux-x64", "linux-x64", "build-metadata.json");
+    const metadata = path.join(paths.input, "prebuild-linux-x64", "linux-x64", "build-metadata.json");
     const value = JSON.parse(fs.readFileSync(metadata, "utf8"));
     value.core_tag = "v-old";
     fs.writeFileSync(metadata, JSON.stringify(value));
@@ -110,6 +129,7 @@ test("collector rejects a matrix artifact from a different core tag", () => {
       "--input", paths.input,
       "--output", paths.output,
       "--core-tag", paths.coreTag,
+      "--core-dir", paths.coreDir,
       "--force",
     ]);
     assert.notEqual(result.status, 0);
@@ -132,4 +152,66 @@ test("CI gates strict provenance checks for v2 manifests", () => {
   assert.match(workflow, /augmem\.cortext\.node\.prebuilds\.v2/);
   assert.match(workflow, /Legacy prebuild manifest/);
   assert.match(workflow, /node scripts\/check-prebuilds\.mjs --host-only/);
+});
+test("release workflow pins immutable source and uses exact non-clobbering publication", () => {
+  const workflow = fs.readFileSync(path.join(root, ".github", "workflows", "release.yml"), "utf8");
+  assert.match(workflow, /checkout_sha/);
+  assert.match(workflow, /persist-credentials: false/);
+  assert.match(workflow, /verify-github-tag\.mjs/);
+  assert.match(workflow, /verify-release-package\.mjs/);
+  assert.match(workflow, /path: \$\{\{ runner\.temp \}\}\/cortext-prebuild\n/);
+  assert.doesNotMatch(workflow, /path: \$\{\{ runner\.temp \}\}\/cortext-prebuild\/\$\{\{ matrix\.target \}\}/);
+  assert.doesNotMatch(workflow, /--clobber/);
+  assert.match(workflow, /contents: read/);
+  assert.match(workflow, /contents: write/);
+});
+
+test("archive fixture preserves target directories for collection", () => {
+  const paths = fixture();
+  try {
+    for (const [tag] of targets) {
+      assert.ok(fs.existsSync(path.join(paths.input, `prebuild-${tag}`, tag, "cortext.node")));
+    }
+    const result = run(collectScript, [
+      "--input", paths.input,
+      "--output", paths.output,
+      "--core-tag", paths.coreTag,
+      "--core-dir", paths.coreDir,
+      "--force",
+    ]);
+    assert.equal(result.status, 0, result.stderr);
+    for (const [tag] of targets) assert.ok(fs.existsSync(path.join(paths.output, tag, "cortext.node")));
+  } finally {
+    fs.rmSync(paths.directory, { recursive: true, force: true });
+  }
+});
+
+test("release resolver rejects a non-semver core tag", () => {
+  const output = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "cortext-resolve-core-test-")), "output");
+  try {
+    const result = spawnSync(process.execPath, [path.join(root, "scripts", "resolve-release.mjs")], {
+      cwd: root,
+      encoding: "utf8",
+      env: { ...process.env, GITHUB_OUTPUT: output, GITHUB_REF_TYPE: "branch", INPUT_TAG: "", INPUT_CORE_TAG: "feature/node-media" },
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}\n${result.stderr}`, /package version is not strict semver|core tag/);
+  } finally {
+    fs.rmSync(path.dirname(output), { recursive: true, force: true });
+  }
+});
+
+test("release resolver rejects a tag that differs from package.json", () => {
+  const output = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "cortext-resolve-test-")), "output");
+  try {
+    const result = spawnSync(process.execPath, [path.join(root, "scripts", "resolve-release.mjs")], {
+      cwd: root,
+      encoding: "utf8",
+      env: { ...process.env, GITHUB_OUTPUT: output, GITHUB_REF_TYPE: "branch", INPUT_TAG: "v9.9.9", INPUT_CORE_TAG: "v1.3.0" },
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}\n${result.stderr}`, /must exactly match package\.json version/);
+  } finally {
+    fs.rmSync(path.dirname(output), { recursive: true, force: true });
+  }
 });
