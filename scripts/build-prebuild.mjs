@@ -287,6 +287,8 @@ function main() {
       "-DCORTEXT_BUILD_EXAMPLES=OFF",
       "-DCORTEXT_BUILD_TOOLS=OFF",
       "-DCORTEXT_GGML_OPENMP=OFF",
+      "-DCORTEXT_EMBED_AIST_MODEL=OFF",
+      "-DCORTEXT_FETCH_AIST_MODEL=OFF",
       "-DCORTEXT_NODE_EXECUTABLE=" + args.node,
     ];
     if (fs.existsSync(path.join(nodeHeaders, "node_api.h"))) {
