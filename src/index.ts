@@ -26,6 +26,7 @@ export type {
   CortextContext,
   CortextEmbedding,
   CortextMemory,
+  CortextMemoryContent,
   Media,
   NativeBinding,
   NativeCortext,
