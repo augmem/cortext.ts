@@ -48,6 +48,13 @@ export type ConsolidationState = "none" | "recommended" | "required";
 
 /** Structured process* response (parsed from process*Json). */
 export interface CortextContext {
+  /**
+   * Standing directives for a query ("Always ...", "I prefer ..."), outside
+   * the retrieved ranking: each entry holds only the stored signals that state
+   * a directive. Show it ahead of `retrieved_memory`; it does not count
+   * against a cut of the retrieved list (an evidence budget counts it).
+   */
+  standing_memory?: CortextMemory[];
   retrieved_memory?: CortextMemory[];
   working_memory?: CortextMemory[];
   should_interrupt?: boolean;
@@ -90,6 +97,16 @@ export interface ProcessOptions {
   omitEmbedding?: boolean;
   /** Natural when omitted: boundary and write algorithms decide. */
   retention?: Retention;
+  /**
+   * Evidence budget in bytes for the returned packet. Omitted (or 0): recalled
+   * memories come back whole. Set: `standing_memory` plus `retrieved_memory`
+   * (with attached neighbours) fit within it, text counted by its UTF-8 bytes
+   * and other payloads as 480 bytes each; grouped memories keep their members
+   * most similar to the query, and more distinct memories are kept trimmed
+   * before lower-ranked ones are left out. Convert a token budget with the
+   * reader's tokenizer rate (8,000 tokens at 4.35 chars/token is 34,800).
+   */
+  evidenceBudgetBytes?: number;
 }
 
 /** Shape of the N-API addon exports. */

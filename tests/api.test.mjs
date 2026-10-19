@@ -45,6 +45,47 @@ test("processText durable then ephemeral recall", () => {
   }
 });
 
+test("evidenceBudgetBytes bounds standing and retrieved memory", () => {
+  const memory = new Cortext(":memory:");
+  try {
+    memory.processText("Always answer with the departure pier.", "chat/rules", {
+      retention: "durable",
+    });
+    for (let i = 0; i < 6; i++) {
+      memory.processText(
+        `The ferry to the island leaves at ${6 + i} from pier four.`,
+        `chat/ferry/${i}`,
+        { retention: "durable" }
+      );
+    }
+    const evidence = (ctx) =>
+      [...ctx.standing_memory, ...ctx.retrieved_memory]
+        .flatMap((m) => m.content ?? [])
+        .reduce(
+          (sum, c) => sum + (c.mimetype.startsWith("text/") ? c.size_bytes : 480),
+          0
+        );
+    const query = "When does the ferry leave?";
+    const whole = memory.processText(query, "query/public", {
+      retention: "ephemeral",
+    });
+    assert.ok(Array.isArray(whole.standing_memory));
+    assert.ok(whole.retrieved_memory.length >= 2);
+    const budget = Math.floor(evidence(whole) / 2);
+    const budgeted = memory.processText(query, "query/public", {
+      retention: "ephemeral",
+      evidenceBudgetBytes: budget,
+    });
+    assert.ok(evidence(budgeted) <= budget);
+    assert.ok(budgeted.retrieved_memory.length < whole.retrieved_memory.length);
+    assert.throws(() =>
+      memory.processText(query, "query/public", { evidenceBudgetBytes: 1.5 })
+    );
+  } finally {
+    memory.flush();
+  }
+});
+
 test("embedText returns a non-empty float vector", () => {
   const memory = new Cortext(":memory:");
   try {

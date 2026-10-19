@@ -90,13 +90,16 @@ try {
     retention: "durable",
   });
 
+  // evidenceBudgetBytes: the reader's evidence budget (omit for whole
+  // memories); 8,000 tokens at 4.35 chars/token is 34,800 bytes.
   const ctx = memory.processText(
     "We are leaving soon. What should I remember about the garage?",
     "chat/assistant",
-    { includeEmbedding: false, retention: "ephemeral" }
+    { includeEmbedding: false, retention: "ephemeral", evidenceBudgetBytes: 34_800 }
   );
 
-  for (const item of ctx.retrieved_memory ?? []) {
+  // Standing directives lead, then the retrieved memories.
+  for (const item of [...(ctx.standing_memory ?? []), ...(ctx.retrieved_memory ?? [])]) {
     // Every signal payload of the memory, each with its own MIME type;
     // modality is the one its signals share, or "mixed".
     const payloads = (item.content ?? []).map((c) => c.mimetype);
