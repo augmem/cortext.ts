@@ -86,6 +86,23 @@ test("evidenceBudgetBytes bounds standing and retrieved memory", () => {
   }
 });
 
+test("processAudioWithMedia accepts binary Uint8Array and MIME", () => {
+  const memory = new Cortext(":memory:");
+  try {
+    const ctx = memory.processAudioWithMedia(
+      new Float32Array(160),
+      "media/audio",
+      new Uint8Array([0x00, 0x7f, 0xff, 0x01]),
+      "audio/ogg",
+      { retention: "ephemeral", includeEmbedding: false }
+    );
+    assert.equal(typeof ctx.consolidation_state, "string");
+    assert.ok(ctx.output && typeof ctx.output === "object");
+  } finally {
+    memory.flush();
+  }
+});
+
 test("embedText returns a non-empty float vector", () => {
   const memory = new Cortext(":memory:");
   try {
