@@ -7,11 +7,11 @@ This repository is the language-binding home for Node.js — the sibling of
 [`cortext.go`](https://github.com/augmem/cortext.go). It publishes the npm
 package **`@augmem/cortext`**.
 
-Binding **1.3.3** tracks the Cortext native API and release assets at
-[`augmem/cortext.cpp@v1.3.3`](https://github.com/augmem/cortext.cpp/tree/v1.3.3).
-The native addon must be built from that same core tag; this wrapper does not
-provide a compatibility fallback for older addons because `processTextWithMedia`
-requires native support.
+Binding **2.0.0** tracks the Cortext native API and release assets at
+[`augmem/cortext.cpp@v2.0.0`](https://github.com/augmem/cortext.cpp/tree/v2.0.0)
+(engine v5). The native addon must be built from that same core tag; this
+wrapper does not provide a compatibility fallback for older addons, which do
+not read the evidence-budget or reference-time options.
 
 ## Install
 
@@ -197,7 +197,7 @@ cd cortext.ts
 npm install
 
 # Build the host addon from the exact available core tag.
-CORTEXT_CORE_TAG=v1.3.3 npm run build:prebuild -- \
+CORTEXT_CORE_TAG=v2.0.0 npm run build:prebuild -- \
   --core-dir ../cortext.cpp \
   --target "$(node -p '`${process.platform}-${process.arch}`')"
 
@@ -210,10 +210,10 @@ npm run test:release
 # test that downloads the LI reranker.
 ```
 
-Until a core release carries engine v5, build an untagged core checkout
-directly with CMake (`-DCORTEXT_BUILD_NODE_BINDINGS=ON`, target `cortext_node`)
-and point `CORTEXT_NODE_ADDON_PATH` at the resulting `ffi/node/cortext.node`;
-`build:prebuild` deliberately accepts only exact core tags.
+`build:prebuild` deliberately accepts only exact core tags. To test against an
+untagged core checkout, build it directly with CMake
+(`-DCORTEXT_BUILD_NODE_BINDINGS=ON`, target `cortext_node`) and point
+`CORTEXT_NODE_ADDON_PATH` at the resulting `ffi/node/cortext.node`.
 
 `npm run vendor:prebuilds` is retained only as a legacy compatibility helper;
 it is not the source of release artifacts and should not point at a nonexistent
@@ -256,14 +256,13 @@ C++ and N-API source is never duplicated here.
 For a local host build (the checkout must already be at the exact tag):
 
 ```bash
-CORTEXT_CORE_TAG=v1.3.3 npm run build:prebuild -- \
+CORTEXT_CORE_TAG=v2.0.0 npm run build:prebuild -- \
   --core-dir ../cortext.cpp --target "$(node -p '`${process.platform}-${process.arch}`')"
 ```
 
-The workflow dispatch input intentionally defaults to
-`REPLACE_WITH_MATCHING_CORE_TAG`. Replace it with the follow-up
-`augmem/cortext.cpp` tag that contains the Node text-media wrapper; do not
-silently substitute an older native addon.
+A pushed `vX.Y.Z` tag builds against the core tag of the same version; the
+workflow dispatch `core_tag` input defaults to `v2.0.0`. Do not silently
+substitute an older native addon.
 
 Release CI uses `npm run test:release`: it builds the package and runs the
 package, declaration, prebuild-manifest, and wrapper-contract checks while

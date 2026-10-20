@@ -27,10 +27,11 @@ const TOKENIZER_FILE = {
 // The AIST late-interaction reranker. The engine requires it whenever an AIST
 // model is present: it reads CORTEXT_LI_MODEL_PATH, else AIST-87M-LI.gguf
 // beside the AIST model. It is not on the Hugging Face model repo; it ships as
-// Git shards in augmem/cortext.cpp (models/manifest.json), fetched here from an
-// immutable commit and reassembled without re-sharding.
+// Git shards in augmem/cortext.cpp (models/manifest.json), fetched here from
+// the matching engine release tag, checksummed against the pinned digests and
+// reassembled without re-sharding.
 const LI_SOURCE_REPO = "augmem/cortext.cpp";
-const LI_SOURCE_COMMIT = "f0b681e97450a4955458d0f4b140f58d15bba650";
+const LI_SOURCE_REF = "v2.0.0";
 const LI_MODEL_FILE = {
   filename: "AIST-87M-LI.gguf",
   sha256: "e5fc69ab84fbfe826a4730346b9a9315f12dc1e11767c66d5bc38557ef4290a4",
@@ -96,8 +97,8 @@ export function modelCacheDir(): string {
   return path.join(root, "augmem", "cortext", "models");
 }
 
-function githubRawUrl(repo: string, commit: string, filename: string): string {
-  return `https://raw.githubusercontent.com/${repo}/${commit}/${filename}`;
+function githubRawUrl(repo: string, ref: string, filename: string): string {
+  return `https://raw.githubusercontent.com/${repo}/${ref}/${filename}`;
 }
 
 /**
@@ -289,7 +290,7 @@ async function ensureVerifiedFile(
  */
 async function ensureVerifiedChunkedFile(
   repo: string,
-  commit: string,
+  ref: string,
   chunks: ReadonlyArray<{ filename: string; sha256: string }>,
   dest: string,
   expectedSha256: string,
@@ -308,7 +309,7 @@ async function ensureVerifiedChunkedFile(
     for (const [index, chunk] of chunks.entries()) {
       const part = `${assembled}.part-${String(index).padStart(3, "0")}`;
       parts.push(part);
-      await requestToFile(githubRawUrl(repo, commit, chunk.filename), part);
+      await requestToFile(githubRawUrl(repo, ref, chunk.filename), part);
       const actual = sha256File(part);
       if (actual !== chunk.sha256) {
         throw new Error(
@@ -364,7 +365,7 @@ export async function ensureDefaultAssets(): Promise<string> {
   } else {
     await ensureVerifiedChunkedFile(
       LI_SOURCE_REPO,
-      LI_SOURCE_COMMIT,
+      LI_SOURCE_REF,
       LI_MODEL_FILE.chunks,
       liPath,
       LI_MODEL_FILE.sha256,

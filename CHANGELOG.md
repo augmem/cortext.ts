@@ -6,12 +6,12 @@ documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [2.0.0] - 2026-10-20
 
-Requires the next `augmem/cortext.cpp` release (engine v5, per-blob content
-timestamps and reference-time retrieval; `main` at `f0b681e9`). The package
-version and the pinned core tag (`v1.3.3`) are unchanged until that release
-exists; a `v1.3.3` addon does not implement these options.
+Requires [`augmem/cortext.cpp` `v2.0.0`](https://github.com/augmem/cortext.cpp/releases/tag/v2.0.0)
+(engine v5, per-blob content timestamps and reference-time retrieval). The
+major version follows the engine's, whose C ABI broke; prebuilds are built from
+the `v2.0.0` core tag, and older addons do not implement these options.
 
 ### Breaking
 
@@ -43,7 +43,7 @@ exists; a `v1.3.3` addon does not implement these options.
   (query) calls read them.
 - `ensureDefaultAssets()` downloads, checksums and reassembles the LI reranker
   beside the cached AIST model (from the Git shards in `augmem/cortext.cpp` at
-  `f0b681e9`); `defaultAistModelPath()` only reports a model whose reranker
+  `v2.0.0`); `defaultAistModelPath()` only reports a model whose reranker
   resolves. New `lateInteractionModelPath()` helper.
 - Tests for each surface above, plus `processTextWithMedia` storing the text
   for empty media and keeping typed `text/*` and binary payloads.
