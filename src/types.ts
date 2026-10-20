@@ -19,6 +19,11 @@ export interface CortextMemoryContent {
   mimetype: string;
   /** Payload bytes, base64-encoded; decode according to `mimetype`. */
   base64: string;
+  /**
+   * When this payload's content happened, in milliseconds since the Unix
+   * epoch (the time it was stored); 0 when unknown.
+   */
+  timestamp: number;
 }
 
 /** One retrieved or working-memory item from process* output. */
@@ -107,6 +112,20 @@ export interface ProcessOptions {
    * reader's tokenizer rate (8,000 tokens at 4.35 chars/token is 34,800).
    */
   evidenceBudgetBytes?: number;
+  /**
+   * Reference time for a query, in whole milliseconds since the Unix epoch
+   * (past or future), for example `Date.parse("2026-03-01T00:00:00Z")`. Set,
+   * the long-term memories nearest that time join the retrieval candidates;
+   * nothing is dropped for being later. Read only by ephemeral (query) calls;
+   * omitted, null or undefined leaves retrieval unchanged.
+   */
+  referenceMs?: number | null;
+  /**
+   * With `referenceMs`, answer as of that time: memories that start after it
+   * are hidden, as are later turns and restatements attached to retrieved
+   * ones. Without `referenceMs` it has no effect.
+   */
+  asOf?: boolean;
 }
 
 /** Shape of the N-API addon exports. */
