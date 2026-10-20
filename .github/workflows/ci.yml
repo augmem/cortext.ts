@@ -57,7 +57,7 @@ jobs:
           set -euo pipefail
           # Prefer a temporary install of the last published package as a prebuild source
           # for pre-publish smoke tests only; the release workflow requires matching
-          # v1.3.3 core/native artifacts and never falls back to this source.
+          # v2.0.0 core/native artifacts and never falls back to this source.
           # Falls back to a core checkout when present (self-hosted / multi-checkout CI).
           mkdir -p /tmp/cortext-prebuild-src
           npm pack @augmem/cortext@${{ env.PKG_VERSION || '1.2.4' }} --pack-destination /tmp/cortext-prebuild-src || true
@@ -92,3 +92,56 @@ jobs:
         # gate here so CI proves packaging, declarations, provenance, and the
         # wrapper contract without attempting native model inference.
         run: npm run test:release
+
+  engine-v5-runtime:
+    # Full model-equipped suite against an addon built from the pinned core
+    # tag, with the default assets fetched through ensureDefaultAssets() (AIST
+    # and vocab from Hugging Face, the LI reranker from the core tag).
+    # CORTEXT_REQUIRE_ENGINE_V5 makes any missing model a failure, not a skip.
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            target: linux-x64
+          - os: macos-14
+            target: darwin-arm64
+            # GitHub's macOS VMs expose a paravirtual Metal device that lacks
+            # ops the AIST graph uses (ggml aborts: unsupported op 'MUL_MAT'),
+            # so the engine runs on its CPU backend there. Apple Silicon
+            # hardware runs the same addon on Metal.
+            ggml_backend: CPU
+    env:
+      CORTEXT_AIST_GGML_BACKEND: ${{ matrix.ggml_backend }}
+      CORE_TAG: v2.0.0
+      CORTEXT_REQUIRE_ENGINE_V5: "1"
+      CORTEXT_MODEL_CACHE_DIR: ${{ github.workspace }}/../cortext-models
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build ${{ matrix.target }} addon from core tag
+        run: |
+          set -euo pipefail
+          node scripts/build-prebuild.mjs \
+            --core-tag "$CORE_TAG" \
+            --target "${{ matrix.target }}" \
+            --jobs 4
+
+      - name: Fetch default model assets
+        run: |
+          set -euo pipefail
+          npm run build
+          node -e 'require("./dist/cjs/index.js").ensureDefaultAssets().then((p) => console.log(p))'
+          echo "CORTEXT_AIST_MODEL_PATH=$CORTEXT_MODEL_CACHE_DIR/AIST-87M-GGUF/AIST-87M_q8_0.gguf" >> "$GITHUB_ENV"
+
+      - name: Full test suite
+        run: npm test

@@ -7,11 +7,11 @@ This repository is the language-binding home for Node.js — the sibling of
 [`cortext.go`](https://github.com/augmem/cortext.go). It publishes the npm
 package **`@augmem/cortext`**.
 
-Binding **1.3.3** tracks the Cortext native API and release assets at
-[`augmem/cortext.cpp@v1.3.3`](https://github.com/augmem/cortext.cpp/tree/v1.3.3).
-The native addon must be built from that same core tag; this wrapper does not
-provide a compatibility fallback for older addons because `processTextWithMedia`
-requires native support.
+Binding **2.0.0** tracks the Cortext native API and release assets at
+[`augmem/cortext.cpp@v2.0.0`](https://github.com/augmem/cortext.cpp/tree/v2.0.0)
+(engine v5). The native addon must be built from that same core tag; this
+wrapper does not provide a compatibility fallback for older addons, which do
+not read the evidence-budget or reference-time options.
 
 ## Install
 
@@ -41,14 +41,22 @@ portable glibc baseline. Linux x64 uses the Ubuntu 22.04 runner ABI (glibc
 use their documented native runner ABIs. Consumers needing older Linux
 systems must provide a compatible addon through `CORTEXT_NODE_ADDON_PATH`.
 
-The package does **not** embed the large AIST GGUF model. Release natives embed
-AIST and assemble it on first create. Optional overrides:
+The package and its published addons do **not** embed the AIST GGUF model.
+Point the engine at it with `CORTEXT_AIST_MODEL_PATH`, or fetch it into the
+user cache once with `ensureDefaultAssets()`. Whenever an AIST model is present
+the engine also requires its late-interaction reranker, `AIST-87M-LI.gguf`,
+read from `CORTEXT_LI_MODEL_PATH` or else from beside the AIST model; without it
+`new Cortext(...)` throws. `ensureDefaultAssets()` downloads the reranker too
+(from the Git shards in `augmem/cortext.cpp`, checksummed and reassembled
+beside AIST), and a model cache only counts as the default when its reranker
+resolves.
 
 | Variable | Role |
 | --- | --- |
 | `CORTEXT_NODE_ADDON_PATH` | Explicit path to `cortext.node` |
-| `CORTEXT_AIST_MODEL_PATH` | Explicit full `.gguf` path |
-| `CORTEXT_MODEL_CACHE_DIR` | Cache dir for optional HF downloads |
+| `CORTEXT_AIST_MODEL_PATH` | Explicit full AIST `.gguf` path |
+| `CORTEXT_LI_MODEL_PATH` | Explicit `AIST-87M-LI.gguf` path (default: beside the AIST model) |
+| `CORTEXT_MODEL_CACHE_DIR` | Cache dir for `ensureDefaultAssets()` downloads |
 
 ## Dual package (ESM + CJS)
 
@@ -101,14 +109,21 @@ try {
     retention: "durable",
   });
 
+  // evidenceBudgetBytes: the reader's evidence budget (omit for whole
+  // memories); 8,000 tokens at 4.35 chars/token is 34,800 bytes.
   const ctx = memory.processText(
     "We are leaving soon. What should I remember about the garage?",
     "chat/assistant",
-    { includeEmbedding: false, retention: "ephemeral" }
+    { includeEmbedding: false, retention: "ephemeral", evidenceBudgetBytes: 34_800 }
   );
 
-  for (const item of ctx.retrieved_memory ?? []) {
-    console.log(item.text, item.relevance, item.composite_score);
+  // Standing directives lead, then the retrieved memories.
+  for (const item of [...(ctx.standing_memory ?? []), ...(ctx.retrieved_memory ?? [])]) {
+    // Every signal payload of the memory, each with its own MIME type and
+    // timestamp (ms since the Unix epoch, 0 when unknown); modality is the
+    // one its signals share, or "mixed".
+    const payloads = (item.content ?? []).map((c) => [c.mimetype, c.timestamp]);
+    console.log(item.modality, payloads, item.relevance, item.composite_score);
   }
 
   if (ctx.consolidation_state !== "none") {
@@ -135,6 +150,20 @@ const ctx = memory.processTextWithMedia(
 );
 ```
 
+A query (`retention: "ephemeral"`) can also take a reference time,
+`referenceMs` (whole ms since the Unix epoch, past or future). Unset, retrieval
+is unchanged. Set, the long-term memories nearest that time join the
+candidates; nothing is dropped for being later. Add `asOf: true` to answer as of
+that time: memories that start after it are hidden.
+
+```ts
+const asOfMarch = memory.processText("Where did we park?", "chat/assistant", {
+  retention: "ephemeral",
+  referenceMs: Date.parse("2026-03-01T00:00:00Z"),
+  asOf: true,
+});
+```
+
 ## API
 
 | Export | Notes |
@@ -143,7 +172,7 @@ const ctx = memory.processTextWithMedia(
 | `version()` / `lastError()` | Native version and last error string |
 | `CortextConfig`, `CortextContext`, `ProcessOptions`, `Retention`, `Media` | Public TypeScript types |
 | `loadNative`, `platformTag`, `supportedNativeTargets` | Advanced native loading helpers |
-| `defaultAistModelPath`, `ensureDefaultAssets`, `modelCacheDir` | Optional model path / bootstrap helpers |
+| `defaultAistModelPath`, `ensureDefaultAssets`, `lateInteractionModelPath`, `modelCacheDir` | Optional model path / bootstrap helpers |
 
 Retention values: `"natural" | "durable" | "boundary" | "ephemeral"` (or `0..3`).
 
@@ -168,14 +197,23 @@ cd cortext.ts
 npm install
 
 # Build the host addon from the exact available core tag.
-CORTEXT_CORE_TAG=v1.3.3 npm run build:prebuild -- \
+CORTEXT_CORE_TAG=v2.0.0 npm run build:prebuild -- \
   --core-dir ../cortext.cpp \
   --target "$(node -p '`${process.platform}-${process.arch}`')"
 
 npm run build
 npm run test:release
-# Full npm test additionally requires local AIST model assets.
+# Full npm test additionally requires local AIST model assets, for example:
+#   CORTEXT_AIST_MODEL_PATH=/models/AIST-87M-GGUF/AIST-87M_q8_0.gguf \
+#   CORTEXT_LI_MODEL_PATH=/models/AIST-87M-GGUF/AIST-87M-LI.gguf npm test
+# (vocab.txt under /models/mdbr-leaf-ir). Set CORTEXT_OFFLINE=1 to skip the
+# test that downloads the LI reranker.
 ```
+
+`build:prebuild` deliberately accepts only exact core tags. To test against an
+untagged core checkout, build it directly with CMake
+(`-DCORTEXT_BUILD_NODE_BINDINGS=ON`, target `cortext_node`) and point
+`CORTEXT_NODE_ADDON_PATH` at the resulting `ffi/node/cortext.node`.
 
 `npm run vendor:prebuilds` is retained only as a legacy compatibility helper;
 it is not the source of release artifacts and should not point at a nonexistent
@@ -218,14 +256,13 @@ C++ and N-API source is never duplicated here.
 For a local host build (the checkout must already be at the exact tag):
 
 ```bash
-CORTEXT_CORE_TAG=v1.3.3 npm run build:prebuild -- \
+CORTEXT_CORE_TAG=v2.0.0 npm run build:prebuild -- \
   --core-dir ../cortext.cpp --target "$(node -p '`${process.platform}-${process.arch}`')"
 ```
 
-The workflow dispatch input intentionally defaults to
-`REPLACE_WITH_MATCHING_CORE_TAG`. Replace it with the follow-up
-`augmem/cortext.cpp` tag that contains the Node text-media wrapper; do not
-silently substitute an older native addon.
+A pushed `vX.Y.Z` tag builds against the core tag of the same version; the
+workflow dispatch `core_tag` input defaults to `v2.0.0`. Do not silently
+substitute an older native addon.
 
 Release CI uses `npm run test:release`: it builds the package and runs the
 package, declaration, prebuild-manifest, and wrapper-contract checks while

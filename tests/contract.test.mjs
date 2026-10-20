@@ -23,6 +23,29 @@ test("published type declarations match consolidation_state contract", () => {
   assert.doesNotMatch(declarations, /consolidation_required/);
 });
 
+test("published types expose engine v5 options and content fields", () => {
+  const declarations = fs.readFileSync(
+    path.join(root, "dist", "types", "types.d.ts"),
+    "utf8"
+  );
+  assert.match(declarations, /evidenceBudgetBytes\?: number;/);
+  assert.match(declarations, /referenceMs\?: number \| null;/);
+  assert.match(declarations, /asOf\?: boolean;/);
+  assert.match(declarations, /standing_memory\?: CortextMemory\[\];/);
+  const content = declarations.match(
+    /export interface CortextMemoryContent \{[\s\S]*?\n\}/
+  );
+  assert.ok(content, "CortextMemoryContent is declared");
+  assert.match(content[0], /mimetype: string;/);
+  assert.match(content[0], /timestamp: number;/);
+  assert.doesNotMatch(declarations, /proceduralEnabled|soft_anchor/i);
+  const index = fs.readFileSync(
+    path.join(root, "dist", "types", "index.d.ts"),
+    "utf8"
+  );
+  assert.match(index, /lateInteractionModelPath/);
+});
+
 test("published types expose safe text media overloads", () => {
   const declarations = fs.readFileSync(
     path.join(root, "dist", "types", "cortext.d.ts"),

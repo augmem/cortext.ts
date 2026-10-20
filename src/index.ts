@@ -13,6 +13,7 @@ export {
   defaultAistModelPath,
   ensureDefaultAistModelPathSync,
   ensureDefaultAssets,
+  lateInteractionModelPath,
   modelCacheDir,
 } from "./model-bootstrap.js";
 export {
@@ -26,6 +27,7 @@ export type {
   CortextContext,
   CortextEmbedding,
   CortextMemory,
+  CortextMemoryContent,
   Media,
   NativeBinding,
   NativeCortext,

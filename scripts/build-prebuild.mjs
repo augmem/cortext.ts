@@ -7,8 +7,8 @@
  * a small provenance sidecar are emitted under --output.
  *
  * Examples:
- *   node scripts/build-prebuild.mjs --core-tag v1.3.3 --target linux-x64
- *   CORTEXT_CORE_TAG=v1.3.3 npm run build:prebuild -- --target darwin-arm64
+ *   node scripts/build-prebuild.mjs --core-tag v2.0.0 --target linux-x64
+ *   CORTEXT_CORE_TAG=v2.0.0 npm run build:prebuild -- --target darwin-arm64
  */
 import fs from "node:fs";
 import os from "node:os";

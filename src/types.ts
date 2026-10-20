@@ -6,28 +6,46 @@ export interface CortextConfig {
   affectInterrupt?: boolean;
   affectRetrieval?: boolean;
   reinforcementEnabled?: boolean;
-  proceduralEnabled?: boolean;
   sequentialEdgesEnabled?: boolean;
   signalFilterAudioEnabled?: boolean;
   signalFilterImageEnabled?: boolean;
   signalFilterTextEnabled?: boolean;
 }
 
+/** One stored signal payload of a memory, in signal order. */
+export interface CortextMemoryContent {
+  size_bytes: number;
+  /** MIME type of this payload (for example "text/plain" or "image/jpeg"). */
+  mimetype: string;
+  /** Payload bytes, base64-encoded; decode according to `mimetype`. */
+  base64: string;
+  /**
+   * When this payload's content happened, in milliseconds since the Unix
+   * epoch (the time it was stored); 0 when unknown.
+   */
+  timestamp: number;
+}
+
 /** One retrieved or working-memory item from process* output. */
 export interface CortextMemory {
   id?: number | string;
   memory_id?: number | string;
-  text?: string;
   source_id?: string;
   timestamp?: number;
+  /**
+   * The modality the memory's signals share ("text", "audio", "image"), or
+   * "mixed" when its signals have different modalities.
+   */
   modality?: string;
+  /** MIME type of the memory's first signal; see `content` for every payload. */
   mimetype?: string;
+  /** Every signal payload of the memory, each with its own MIME type. */
+  content?: CortextMemoryContent[];
   relevance?: number;
   composite_score?: number;
   salience?: number;
   contradiction?: number;
   usage_count?: number;
-  soft_anchors?: unknown[];
   [key: string]: unknown;
 }
 
@@ -35,6 +53,13 @@ export type ConsolidationState = "none" | "recommended" | "required";
 
 /** Structured process* response (parsed from process*Json). */
 export interface CortextContext {
+  /**
+   * Standing directives for a query ("Always ...", "I prefer ..."), outside
+   * the retrieved ranking: each entry holds only the stored signals that state
+   * a directive. Show it ahead of `retrieved_memory`; it does not count
+   * against a cut of the retrieved list (an evidence budget counts it).
+   */
+  standing_memory?: CortextMemory[];
   retrieved_memory?: CortextMemory[];
   working_memory?: CortextMemory[];
   should_interrupt?: boolean;
@@ -77,6 +102,30 @@ export interface ProcessOptions {
   omitEmbedding?: boolean;
   /** Natural when omitted: boundary and write algorithms decide. */
   retention?: Retention;
+  /**
+   * Evidence budget in bytes for the returned packet. Omitted (or 0): recalled
+   * memories come back whole. Set: `standing_memory` plus `retrieved_memory`
+   * (with attached neighbours) fit within it, text counted by its UTF-8 bytes
+   * and other payloads as 480 bytes each; grouped memories keep their members
+   * most similar to the query, and more distinct memories are kept trimmed
+   * before lower-ranked ones are left out. Convert a token budget with the
+   * reader's tokenizer rate (8,000 tokens at 4.35 chars/token is 34,800).
+   */
+  evidenceBudgetBytes?: number;
+  /**
+   * Reference time for a query, in whole milliseconds since the Unix epoch
+   * (past or future), for example `Date.parse("2026-03-01T00:00:00Z")`. Set,
+   * the long-term memories nearest that time join the retrieval candidates;
+   * nothing is dropped for being later. Read only by ephemeral (query) calls;
+   * omitted, null or undefined leaves retrieval unchanged.
+   */
+  referenceMs?: number | null;
+  /**
+   * With `referenceMs`, answer as of that time: memories that start after it
+   * are hidden, as are later turns and restatements attached to retrieved
+   * ones. Without `referenceMs` it has no effect.
+   */
+  asOf?: boolean;
 }
 
 /** Shape of the N-API addon exports. */
