@@ -26,6 +26,9 @@ const symbols = [
   "reset",
   "version",
   "lastError",
+  "evidenceBudgetBytes",
+  "referenceMs",
+  "asOf",
 ];
 const targets = [
   ["darwin-arm64", "aarch64-apple-darwin"],
@@ -60,14 +63,14 @@ function fixtureAddon(tag) {
   return addon;
 }
 
-function fixture() {
+function fixture({ addonSource = symbols.join("\n") } = {}) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "cortext-prebuild-test-"));
   const input = path.join(directory, "input");
   const output = path.join(directory, "output", "prebuilds");
   const coreTag = "v9.9.9-node-text-media";
   const coreDir = path.join(directory, "core");
   fs.mkdirSync(path.join(coreDir, "ffi", "node"), { recursive: true });
-  fs.writeFileSync(path.join(coreDir, "ffi", "node", "addon.cpp"), symbols.join("\n"));
+  fs.writeFileSync(path.join(coreDir, "ffi", "node", "addon.cpp"), addonSource);
   fs.writeFileSync(path.join(coreDir, "CMakeLists.txt"), "CORTEXT_BUILD_NODE_BINDINGS");
   execFileSync("git", ["init", "-q"], { cwd: coreDir });
   execFileSync("git", ["config", "user.email", "test@example.invalid"], { cwd: coreDir });
@@ -130,6 +133,25 @@ test("collector writes a complete core-tag and symbol manifest", () => {
       "--core-commit", paths.coreCommit,
     ]);
     assert.equal(checked.status, 0, checked.stderr);
+  } finally {
+    fs.rmSync(paths.directory, { recursive: true, force: true });
+  }
+});
+
+test("collector rejects a core whose addon predates reference-time options", () => {
+  const paths = fixture({
+    addonSource: symbols.filter((symbol) => symbol !== "referenceMs" && symbol !== "asOf").join("\n"),
+  });
+  try {
+    const result = run(collectScript, [
+      "--input", paths.input,
+      "--output", paths.output,
+      "--core-tag", paths.coreTag,
+      "--core-dir", paths.coreDir,
+      "--force",
+    ]);
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}\n${result.stderr}`, /required Node symbols: referenceMs, asOf/);
   } finally {
     fs.rmSync(paths.directory, { recursive: true, force: true });
   }

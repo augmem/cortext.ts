@@ -59,6 +59,9 @@ export const MIN_ADDON_BYTES = 1024;
 // These are the JS-visible names registered by augmem/cortext.cpp/ffi/node.
 // Keep this list in the package repo so a manifest cannot silently describe an
 // older addon that predates a wrapper API (notably processTextWithMediaJson).
+// ProcessOptions property names count too: an older addon ignores options it
+// does not read, so a core without them would silently drop the evidence
+// budget or the reference time.
 export const REQUIRED_SYMBOLS = [
   "NativeCortext",
   "processTextJson",
@@ -75,6 +78,9 @@ export const REQUIRED_SYMBOLS = [
   "reset",
   "version",
   "lastError",
+  "evidenceBudgetBytes",
+  "referenceMs",
+  "asOf",
 ];
 
 export function sha256(file) {
