@@ -10,6 +10,7 @@ import test from "node:test";
 // when an AIST model is present without its reranker, so a model cache only
 // counts when the reranker resolves too. Needs the real model files, found
 // through CORTEXT_AIST_MODEL_PATH (vocab.txt under ../../mdbr-leaf-ir).
+// CORTEXT_REQUIRE_ENGINE_V5=1 (set in CI) turns every skip into a failure.
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
@@ -27,9 +28,19 @@ const haveModels =
   fs.existsSync(aistSource) &&
   fs.existsSync(liSource) &&
   fs.existsSync(vocabSource);
-const skip = haveModels
+const requireV5 = Boolean(process.env.CORTEXT_REQUIRE_ENGINE_V5);
+const skip = haveModels || requireV5
   ? false
   : "set CORTEXT_AIST_MODEL_PATH (with AIST-87M-LI.gguf and mdbr-leaf-ir/vocab.txt)";
+const offline =
+  process.env.CORTEXT_OFFLINE && !requireV5 ? "CORTEXT_OFFLINE" : false;
+
+test("engine v5 model assets are present when required", { skip: requireV5 ? false : "CORTEXT_REQUIRE_ENGINE_V5 unset" }, () => {
+  assert.ok(
+    haveModels,
+    `CORTEXT_REQUIRE_ENGINE_V5 needs AIST, AIST-87M-LI.gguf and vocab.txt (CORTEXT_AIST_MODEL_PATH=${aistSource})`
+  );
+});
 
 // Run fn with the bootstrap looking only at a fresh cache directory.
 function withCache(fn) {
@@ -114,7 +125,7 @@ test("cached AIST with CORTEXT_LI_MODEL_PATH is the default", { skip }, () => {
 
 test(
   "ensureDefaultAssets fetches, checksums and places the LI reranker beside AIST",
-  { skip: skip || (process.env.CORTEXT_OFFLINE ? "CORTEXT_OFFLINE" : false) },
+  { skip: skip || offline },
   async () => {
     await withCache(async (cache) => {
       const aist = seed(cache, { li: false });
