@@ -24,6 +24,26 @@ const TOKENIZER_FILE = {
   size: 231_508,
 } as const;
 
+// The AIST late-interaction reranker. The engine requires it whenever an AIST
+// model is present: it reads CORTEXT_LI_MODEL_PATH, else AIST-87M-LI.gguf
+// beside the AIST model. It is not on the Hugging Face model repo; it ships as
+// Git shards in augmem/cortext.cpp (models/manifest.json), fetched here from an
+// immutable commit and reassembled without re-sharding.
+const LI_SOURCE_REPO = "augmem/cortext.cpp";
+const LI_SOURCE_COMMIT = "f0b681e97450a4955458d0f4b140f58d15bba650";
+const LI_MODEL_FILE = {
+  filename: "AIST-87M-LI.gguf",
+  sha256: "e5fc69ab84fbfe826a4730346b9a9315f12dc1e11767c66d5bc38557ef4290a4",
+  size: 410_848,
+  chunks: [
+    {
+      filename: "models/AIST-87M-GGUF/chunks/AIST-87M-LI.gguf.part-000",
+      sha256:
+        "e5fc69ab84fbfe826a4730346b9a9315f12dc1e11767c66d5bc38557ef4290a4",
+    },
+  ],
+} as const;
+
 const DOWNLOAD_TIMEOUT_MS = 60_000;
 
 function packageRoot(): string {
@@ -76,12 +96,34 @@ export function modelCacheDir(): string {
   return path.join(root, "augmem", "cortext", "models");
 }
 
+function githubRawUrl(repo: string, commit: string, filename: string): string {
+  return `https://raw.githubusercontent.com/${repo}/${commit}/${filename}`;
+}
+
+/**
+ * Path the engine resolves the late-interaction reranker from for an AIST
+ * model: CORTEXT_LI_MODEL_PATH when set, else AIST-87M-LI.gguf beside it.
+ */
+export function lateInteractionModelPath(aistModel: string): string {
+  const override = process.env.CORTEXT_LI_MODEL_PATH;
+  if (override) {
+    return path.resolve(override);
+  }
+  return path.join(path.dirname(aistModel), LI_MODEL_FILE.filename);
+}
+
 function aistModelPath(dir: string): string | undefined {
   const candidates = [
     path.join(dir, "AIST-87M-GGUF", "AIST-87M_q8_0.gguf"),
     path.join(dir, "AIST-87M-GGUF", "AIST-87M_q5_1.gguf"),
   ];
-  return candidates.find((candidate) => fs.existsSync(candidate));
+  // An AIST model without its reranker makes the engine throw, so a model
+  // directory only counts when the reranker resolves too.
+  return candidates.find(
+    (candidate) =>
+      fs.existsSync(candidate) &&
+      fs.existsSync(lateInteractionModelPath(candidate))
+  );
 }
 
 function cachedDefaultAistModelPath(): string | undefined {
@@ -94,7 +136,16 @@ function cachedDefaultAistModelPath(): string | undefined {
   const tokenizerPath = path.join(cacheRoot, TOKENIZER_FILE.target);
   if (
     verifyFile(modelPath, AIST_MODEL_FILE.sha256, AIST_MODEL_FILE.size) &&
-    verifyFile(tokenizerPath, TOKENIZER_FILE.sha256, TOKENIZER_FILE.size)
+    verifyFile(tokenizerPath, TOKENIZER_FILE.sha256, TOKENIZER_FILE.size) &&
+    // An explicit CORTEXT_LI_MODEL_PATH is the caller's file; only the cached
+    // copy is checked against the pinned digest.
+    (process.env.CORTEXT_LI_MODEL_PATH
+      ? fs.existsSync(lateInteractionModelPath(modelPath))
+      : verifyFile(
+          lateInteractionModelPath(modelPath),
+          LI_MODEL_FILE.sha256,
+          LI_MODEL_FILE.size
+        ))
   ) {
     return modelPath;
   }
@@ -232,7 +283,59 @@ async function ensureVerifiedFile(
   }
 }
 
-/** Explicit download of default AIST + tokenizer into the user cache. */
+/**
+ * Download every chunk of a Git-sharded asset, check each chunk's digest,
+ * concatenate them in order and check the whole file.
+ */
+async function ensureVerifiedChunkedFile(
+  repo: string,
+  commit: string,
+  chunks: ReadonlyArray<{ filename: string; sha256: string }>,
+  dest: string,
+  expectedSha256: string,
+  expectedSize: number
+): Promise<void> {
+  if (verifyFile(dest, expectedSha256, expectedSize)) {
+    return;
+  }
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  const parts: string[] = [];
+  const assembled = path.join(
+    path.dirname(dest),
+    `.${path.basename(dest)}.${process.pid}.${Date.now()}.assembling`
+  );
+  try {
+    for (const [index, chunk] of chunks.entries()) {
+      const part = `${assembled}.part-${String(index).padStart(3, "0")}`;
+      parts.push(part);
+      await requestToFile(githubRawUrl(repo, commit, chunk.filename), part);
+      const actual = sha256File(part);
+      if (actual !== chunk.sha256) {
+        throw new Error(
+          `${path.basename(chunk.filename)} has sha256 ${actual}, expected ${chunk.sha256}`
+        );
+      }
+    }
+    fs.writeFileSync(assembled, Buffer.concat(parts.map((p) => fs.readFileSync(p))));
+    if (!verifyFile(assembled, expectedSha256, expectedSize)) {
+      throw new Error(
+        `${path.basename(dest)} reassembled from ${chunks.length} chunk(s) does not match sha256 ${expectedSha256} and size ${expectedSize}`
+      );
+    }
+    fs.renameSync(assembled, dest);
+  } finally {
+    for (const leftover of [...parts, assembled]) {
+      fs.rmSync(leftover, { force: true });
+    }
+  }
+}
+
+/**
+ * Explicit download of the default AIST model, its late-interaction reranker
+ * (AIST-87M-LI.gguf, placed beside it) and the tokenizer into the user cache.
+ * With CORTEXT_LI_MODEL_PATH set, the reranker is read from there instead and
+ * must already exist.
+ */
 export async function ensureDefaultAssets(): Promise<string> {
   const cacheRoot = modelCacheDir();
   const modelPath = path.join(
@@ -253,5 +356,20 @@ export async function ensureDefaultAssets(): Promise<string> {
     TOKENIZER_FILE.sha256,
     TOKENIZER_FILE.size
   );
+  const liPath = lateInteractionModelPath(modelPath);
+  if (process.env.CORTEXT_LI_MODEL_PATH) {
+    if (!fs.existsSync(liPath)) {
+      throw new Error(`CORTEXT_LI_MODEL_PATH does not exist: ${liPath}`);
+    }
+  } else {
+    await ensureVerifiedChunkedFile(
+      LI_SOURCE_REPO,
+      LI_SOURCE_COMMIT,
+      LI_MODEL_FILE.chunks,
+      liPath,
+      LI_MODEL_FILE.sha256,
+      LI_MODEL_FILE.size
+    );
+  }
   return modelPath;
 }

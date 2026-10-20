@@ -13,6 +13,7 @@ export {
   defaultAistModelPath,
   ensureDefaultAistModelPathSync,
   ensureDefaultAssets,
+  lateInteractionModelPath,
   modelCacheDir,
 } from "./model-bootstrap.js";
 export {
