@@ -107,7 +107,13 @@ jobs:
             target: linux-x64
           - os: macos-14
             target: darwin-arm64
+            # GitHub's macOS VMs expose a paravirtual Metal device that lacks
+            # ops the AIST graph uses (ggml aborts: unsupported op 'MUL_MAT'),
+            # so the engine runs on its CPU backend there. Apple Silicon
+            # hardware runs the same addon on Metal.
+            ggml_backend: CPU
     env:
+      CORTEXT_AIST_GGML_BACKEND: ${{ matrix.ggml_backend }}
       CORE_TAG: v2.0.0
       CORTEXT_REQUIRE_ENGINE_V5: "1"
       CORTEXT_MODEL_CACHE_DIR: ${{ github.workspace }}/../cortext-models
