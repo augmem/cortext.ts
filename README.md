@@ -41,14 +41,22 @@ portable glibc baseline. Linux x64 uses the Ubuntu 22.04 runner ABI (glibc
 use their documented native runner ABIs. Consumers needing older Linux
 systems must provide a compatible addon through `CORTEXT_NODE_ADDON_PATH`.
 
-The package does **not** embed the large AIST GGUF model. Release natives embed
-AIST and assemble it on first create. Optional overrides:
+The package and its published addons do **not** embed the AIST GGUF model.
+Point the engine at it with `CORTEXT_AIST_MODEL_PATH`, or fetch it into the
+user cache once with `ensureDefaultAssets()`. Whenever an AIST model is present
+the engine also requires its late-interaction reranker, `AIST-87M-LI.gguf`,
+read from `CORTEXT_LI_MODEL_PATH` or else from beside the AIST model; without it
+`new Cortext(...)` throws. `ensureDefaultAssets()` downloads the reranker too
+(from the Git shards in `augmem/cortext.cpp`, checksummed and reassembled
+beside AIST), and a model cache only counts as the default when its reranker
+resolves.
 
 | Variable | Role |
 | --- | --- |
 | `CORTEXT_NODE_ADDON_PATH` | Explicit path to `cortext.node` |
-| `CORTEXT_AIST_MODEL_PATH` | Explicit full `.gguf` path |
-| `CORTEXT_MODEL_CACHE_DIR` | Cache dir for optional HF downloads |
+| `CORTEXT_AIST_MODEL_PATH` | Explicit full AIST `.gguf` path |
+| `CORTEXT_LI_MODEL_PATH` | Explicit `AIST-87M-LI.gguf` path (default: beside the AIST model) |
+| `CORTEXT_MODEL_CACHE_DIR` | Cache dir for `ensureDefaultAssets()` downloads |
 
 ## Dual package (ESM + CJS)
 
@@ -111,9 +119,10 @@ try {
 
   // Standing directives lead, then the retrieved memories.
   for (const item of [...(ctx.standing_memory ?? []), ...(ctx.retrieved_memory ?? [])]) {
-    // Every signal payload of the memory, each with its own MIME type;
-    // modality is the one its signals share, or "mixed".
-    const payloads = (item.content ?? []).map((c) => c.mimetype);
+    // Every signal payload of the memory, each with its own MIME type and
+    // timestamp (ms since the Unix epoch, 0 when unknown); modality is the
+    // one its signals share, or "mixed".
+    const payloads = (item.content ?? []).map((c) => [c.mimetype, c.timestamp]);
     console.log(item.modality, payloads, item.relevance, item.composite_score);
   }
 
@@ -141,6 +150,20 @@ const ctx = memory.processTextWithMedia(
 );
 ```
 
+A query (`retention: "ephemeral"`) can also take a reference time,
+`referenceMs` (whole ms since the Unix epoch, past or future). Unset, retrieval
+is unchanged. Set, the long-term memories nearest that time join the
+candidates; nothing is dropped for being later. Add `asOf: true` to answer as of
+that time: memories that start after it are hidden.
+
+```ts
+const asOfMarch = memory.processText("Where did we park?", "chat/assistant", {
+  retention: "ephemeral",
+  referenceMs: Date.parse("2026-03-01T00:00:00Z"),
+  asOf: true,
+});
+```
+
 ## API
 
 | Export | Notes |
@@ -149,7 +172,7 @@ const ctx = memory.processTextWithMedia(
 | `version()` / `lastError()` | Native version and last error string |
 | `CortextConfig`, `CortextContext`, `ProcessOptions`, `Retention`, `Media` | Public TypeScript types |
 | `loadNative`, `platformTag`, `supportedNativeTargets` | Advanced native loading helpers |
-| `defaultAistModelPath`, `ensureDefaultAssets`, `modelCacheDir` | Optional model path / bootstrap helpers |
+| `defaultAistModelPath`, `ensureDefaultAssets`, `lateInteractionModelPath`, `modelCacheDir` | Optional model path / bootstrap helpers |
 
 Retention values: `"natural" | "durable" | "boundary" | "ephemeral"` (or `0..3`).
 
@@ -180,8 +203,17 @@ CORTEXT_CORE_TAG=v1.3.3 npm run build:prebuild -- \
 
 npm run build
 npm run test:release
-# Full npm test additionally requires local AIST model assets.
+# Full npm test additionally requires local AIST model assets, for example:
+#   CORTEXT_AIST_MODEL_PATH=/models/AIST-87M-GGUF/AIST-87M_q8_0.gguf \
+#   CORTEXT_LI_MODEL_PATH=/models/AIST-87M-GGUF/AIST-87M-LI.gguf npm test
+# (vocab.txt under /models/mdbr-leaf-ir). Set CORTEXT_OFFLINE=1 to skip the
+# test that downloads the LI reranker.
 ```
+
+Until a core release carries engine v5, build an untagged core checkout
+directly with CMake (`-DCORTEXT_BUILD_NODE_BINDINGS=ON`, target `cortext_node`)
+and point `CORTEXT_NODE_ADDON_PATH` at the resulting `ffi/node/cortext.node`;
+`build:prebuild` deliberately accepts only exact core tags.
 
 `npm run vendor:prebuilds` is retained only as a legacy compatibility helper;
 it is not the source of release artifacts and should not point at a nonexistent
