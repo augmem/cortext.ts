@@ -35,8 +35,11 @@ Node.js **18+**. Prebuilt N-API addons ship for:
 | `win32-arm64`  | Windows ARM64    |
 
 Release addons are built natively with CMake on the named GitHub runner for
-each target; they are not Zig cross-builds and the manifest does not promise a
-portable glibc baseline. Linux x64 uses the Ubuntu 22.04 runner ABI (glibc
+each target, for a fixed CPU baseline rather than the runner's CPU: x86-64-v3
+(AVX2, FMA, F16C, BMI2) on x64, ARMv8.2-A with dotprod and FP16 on Linux arm64
+(Graviton2, Ampere Altra, Raspberry Pi 5 and newer), the Apple M1 baseline on
+macOS arm64, and ARMv8-A on Windows arm64. They are not Zig cross-builds, and
+the manifest does not promise a portable glibc baseline. Linux x64 uses the Ubuntu 22.04 runner ABI (glibc
 >= 2.35), Linux arm64 uses Ubuntu 24.04 ARM (glibc >= 2.39), and macOS/Windows
 use their documented native runner ABIs. Consumers needing older Linux
 systems must provide a compatible addon through `CORTEXT_NODE_ADDON_PATH`.

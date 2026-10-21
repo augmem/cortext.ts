@@ -28,6 +28,15 @@ the `v2.0.0` core tag, and older addons do not implement these options.
   `evidenceBudgetBytes`, `referenceMs` and `asOf` options, so prebuilds can no
   longer be produced from a core tag that predates them.
 
+### Fixed
+
+- Prebuilt addons are built for a portable CPU baseline instead of the build
+  runner (`GGML_NATIVE=OFF`): x86-64-v3 (AVX2, FMA, F16C, BMI2) on x64,
+  ARMv8.2-A with dotprod and FP16 on Linux arm64, the Apple M1 baseline on
+  macOS arm64, and ARMv8-A on Windows arm64. Native builds used
+  `-march=native` / `-mcpu=native`, and on Windows arm64 ggml's SVE feature
+  probe never returned, hanging the release build.
+
 ### Added
 
 - `ProcessOptions.evidenceBudgetBytes`: a per-call evidence budget in bytes
