@@ -93,6 +93,9 @@ jobs:
 
   build:
     needs: resolve
+    # A hung configure or build (for example a native feature probe that never
+    # returns) fails here instead of running into GitHub's 6-hour job limit.
+    timeout-minutes: 90
     permissions:
       contents: read
     strategy:

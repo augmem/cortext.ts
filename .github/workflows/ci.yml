@@ -145,3 +145,62 @@ jobs:
 
       - name: Full test suite
         run: npm test
+
+  prebuild-matrix:
+    # Build-only rehearsal of release.yml's six-runner prebuild matrix from the
+    # pinned core tag: same runners, same build script, no upload or publish.
+    # Each addon is loaded and asked for its version on its own runner.
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x64
+            os: ubuntu-22.04
+          - target: linux-arm64
+            os: ubuntu-24.04-arm
+          - target: darwin-x64
+            os: macos-15-intel
+          - target: darwin-arm64
+            os: macos-14
+          - target: win32-x64
+            os: windows-2022
+          - target: win32-arm64
+            os: windows-11-arm
+    runs-on: ${{ matrix.os }}
+    env:
+      CORE_TAG: v2.0.0
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pinned Node-API headers
+        run: npm ci --ignore-scripts
+
+      - name: Install LLVM for Windows ARM64
+        if: matrix.target == 'win32-arm64'
+        shell: pwsh
+        run: |
+          choco install llvm --yes --no-progress
+          $llvmBin = Join-Path $env:ProgramFiles "LLVM\bin"
+          if (-not (Test-Path (Join-Path $llvmBin "clang-cl.exe"))) { throw "clang-cl.exe was not installed" }
+          Add-Content -Path $env:GITHUB_PATH -Value $llvmBin
+
+      - name: Build ${{ matrix.target }} from core tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/build-prebuild.mjs \
+            --core-tag "$CORE_TAG" \
+            --target "${{ matrix.target }}" \
+            --output "$RUNNER_TEMP/cortext-prebuild"
+
+      - name: Load the addon
+        shell: bash
+        run: |
+          set -euo pipefail
+          node -e 'const a = require(process.argv[1]); console.log(a.version()); if (typeof a.NativeCortext !== "function") process.exit(1)' \
+            "$RUNNER_TEMP/cortext-prebuild/${{ matrix.target }}/cortext.node"

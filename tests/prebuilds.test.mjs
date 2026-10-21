@@ -233,6 +233,13 @@ test("every prebuild target turns GGML_NATIVE off with an explicit CPU baseline"
   const script = fs.readFileSync(path.join(root, "scripts", "build-prebuild.mjs"), "utf8");
   assert.match(script, /\.\.\.targetFor\(target\)\.ggmlCpu/);
 });
+test("release and CI prebuild matrices fail fast instead of hanging", () => {
+  const release = fs.readFileSync(path.join(root, ".github", "workflows", "release.yml"), "utf8");
+  assert.match(release, /\n  build:\n    needs: resolve\n(?:    #.*\n)*    timeout-minutes: \d+\n/);
+  const ci = fs.readFileSync(path.join(root, ".github", "workflows", "ci.yml"), "utf8");
+  assert.match(ci, /\n  prebuild-matrix:\n(?:    #.*\n)*    timeout-minutes: \d+\n/);
+  assert.match(ci, /os: windows-11-arm/);
+});
 test("CI gates strict provenance checks for v2 manifests", () => {
   const workflow = fs.readFileSync(path.join(root, ".github", "workflows", "ci.yml"), "utf8");
   assert.match(workflow, /schema=.*prebuilds\/manifest\.json/);
