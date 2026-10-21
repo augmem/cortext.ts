@@ -220,6 +220,26 @@ test("build script keeps CMake and core checkout ownership explicit", () => {
   assert.match(script, /configureArgs\.push\("-DCORTEXT_WARNINGS_AS_ERRORS=OFF", "-DCMAKE_CXX_FLAGS=\/EHsc \/DNOMINMAX"\)/);
   assert.doesNotMatch(script, /CORTEXT_EMBED_VEC=OFF/);
 });
+test("every prebuild target turns GGML_NATIVE off with an explicit CPU baseline", async () => {
+  const { TARGETS } = await import(path.join(root, "scripts", "prebuilds-common.mjs"));
+  for (const target of TARGETS) {
+    assert.ok(Array.isArray(target.ggmlCpu), `${target.packageTag} has ggmlCpu args`);
+    assert.ok(target.ggmlCpu.includes("-DGGML_NATIVE=OFF"), `${target.packageTag} disables GGML_NATIVE`);
+    assert.ok(!target.ggmlCpu.some((arg) => /native/i.test(arg.split("=")[1] ?? "")), `${target.packageTag} has no native baseline`);
+    if (target.packageTag.endsWith("-x64")) {
+      assert.ok(target.ggmlCpu.includes("-DGGML_AVX2=ON"), `${target.packageTag} keeps an AVX2 baseline`);
+    }
+  }
+  const script = fs.readFileSync(path.join(root, "scripts", "build-prebuild.mjs"), "utf8");
+  assert.match(script, /\.\.\.targetFor\(target\)\.ggmlCpu/);
+});
+test("release and CI prebuild matrices fail fast instead of hanging", () => {
+  const release = fs.readFileSync(path.join(root, ".github", "workflows", "release.yml"), "utf8");
+  assert.match(release, /\n  build:\n    needs: resolve\n(?:    #.*\n)*    timeout-minutes: \d+\n/);
+  const ci = fs.readFileSync(path.join(root, ".github", "workflows", "ci.yml"), "utf8");
+  assert.match(ci, /\n  prebuild-matrix:\n(?:    #.*\n)*    timeout-minutes: \d+\n/);
+  assert.match(ci, /os: windows-11-arm/);
+});
 test("CI gates strict provenance checks for v2 manifests", () => {
   const workflow = fs.readFileSync(path.join(root, ".github", "workflows", "ci.yml"), "utf8");
   assert.match(workflow, /schema=.*prebuilds\/manifest\.json/);

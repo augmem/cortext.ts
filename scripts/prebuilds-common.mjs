@@ -4,6 +4,23 @@ import fs from "node:fs";
 import crypto from "node:crypto";
 import path from "node:path";
 
+// Published addons must run on any machine of their target, not just on the
+// runner that built them. ggml defaults GGML_NATIVE=ON, which compiles for the
+// build host (-march=native / -mcpu=native, MSVC FindSIMD) and, on ARM, runs
+// check_cxx_source_runs feature probes; the SVE probe never returns on Windows
+// ARM64. Every target therefore turns GGML_NATIVE off and names an explicit
+// CPU baseline instead.
+const X86_64_V3 = [
+  "-DGGML_NATIVE=OFF",
+  "-DGGML_SSE42=ON",
+  "-DGGML_AVX=ON",
+  "-DGGML_AVX2=ON",
+  "-DGGML_BMI2=ON",
+  "-DGGML_FMA=ON",
+  "-DGGML_F16C=ON",
+  "-DGGML_AVX512=OFF",
+];
+
 export const TARGETS = [
   {
     packageTag: "darwin-arm64",
@@ -11,6 +28,8 @@ export const TARGETS = [
     toolchain: "macos-14 (CMake native)",
     abi: "macOS 14 arm64 runner ABI",
     features: { ggml_openmp: false, embed_vec: true },
+    // Apple M1 baseline: ARMv8.4-A (dotprod) with FP16 arithmetic.
+    ggmlCpu: ["-DGGML_NATIVE=OFF", "-DGGML_CPU_ARM_ARCH=armv8.4-a+fp16"],
   },
   {
     packageTag: "darwin-x64",
@@ -18,6 +37,7 @@ export const TARGETS = [
     toolchain: "macos-15-intel (CMake native)",
     abi: "macOS 15 Intel x86_64 runner ABI",
     features: { ggml_openmp: false, embed_vec: true },
+    ggmlCpu: X86_64_V3,
   },
   {
     packageTag: "linux-arm64",
@@ -25,6 +45,8 @@ export const TARGETS = [
     toolchain: "ubuntu-24.04-arm (CMake native)",
     abi: "glibc >= 2.39; ubuntu-24.04-arm runner ABI",
     features: { ggml_openmp: false, embed_vec: true },
+    // Neoverse N1 / Cortex-A76 baseline (Graviton2, Ampere Altra, Pi 5).
+    ggmlCpu: ["-DGGML_NATIVE=OFF", "-DGGML_CPU_ARM_ARCH=armv8.2-a+dotprod+fp16"],
   },
   {
     packageTag: "linux-x64",
@@ -32,6 +54,7 @@ export const TARGETS = [
     toolchain: "ubuntu-22.04 (CMake native)",
     abi: "glibc >= 2.35; ubuntu-22.04 runner ABI",
     features: { ggml_openmp: false, embed_vec: true },
+    ggmlCpu: X86_64_V3,
   },
   {
     packageTag: "win32-arm64",
@@ -39,6 +62,9 @@ export const TARGETS = [
     toolchain: "windows-11-arm (CMake native)",
     abi: "Windows 11 ARM64 runner ABI",
     features: { ggml_openmp: false, embed_vec: true },
+    // clang-cl takes no GGML_CPU_ARM_ARCH (-march) flag; the ARMv8-A baseline
+    // matches what the native probes enabled on the windows-11-arm runner.
+    ggmlCpu: ["-DGGML_NATIVE=OFF"],
   },
   {
     packageTag: "win32-x64",
@@ -46,6 +72,7 @@ export const TARGETS = [
     toolchain: "windows-2022 (CMake native)",
     abi: "Windows 2022 x64 runner ABI",
     features: { ggml_openmp: false, embed_vec: true },
+    ggmlCpu: X86_64_V3,
   },
 ];
 

@@ -290,6 +290,7 @@ function main() {
       "-DCORTEXT_EMBED_AIST_MODEL=OFF",
       "-DCORTEXT_FETCH_AIST_MODEL=OFF",
       "-DCORTEXT_NODE_EXECUTABLE=" + args.node,
+      ...targetFor(target).ggmlCpu,
     ];
     if (fs.existsSync(path.join(nodeHeaders, "node_api.h"))) {
       configureArgs.push("-DCORTEXT_NODE_INCLUDE_DIR=" + nodeHeaders);
